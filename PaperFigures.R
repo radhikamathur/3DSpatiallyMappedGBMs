@@ -7,6 +7,7 @@ dataPath <- '~/Dropbox/Postdoc/Papers/ATAC Paper/'
 InputFile <-  read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS1.xlsx'), startRow = 2)
 PatientColors = c('P455' = "#ff7500", 'P475' = "#ae7000", "P498" = "#44cef6","P500" = "#1bd1a5", "P503" = "#FFD92F", "P519" = "#8d4bbb","P521" = "#ff0097", "P524" = "#BEBEBE", "P529" = "#0B0B45", "P530" = "#FF0000")
 PyCloneClusters <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS2.xlsx'), sheet = 2)
+FACETSResults <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS2.xlsx'), sheet = 4)
 
 ##Fig1C: Pairwise distances between PyClone-defined clusters for P529 and P530##
 
@@ -95,4 +96,29 @@ ggplot(P530_clusters, aes(x=sample, y=cellular_prevalence, group = Pyclone.clust
   theme(legend.position = "none", strip.background = element_rect(colour="white", fill="white"))+
   theme(strip.text.y = element_text( size = 12, angle = 0))+ylim(0,1)
 
+##Fig 1F (FACETS copy number for amplification events)
+FACETSResults$Gene[FACETSResults$chrom == 7 & FACETSResults$start<55324313 & FACETSResults$end>55086714] <- "EGFR"
+FACETSResults$Gene[FACETSResults$chrom == 4 & FACETSResults$start<55164414 & FACETSResults$end>55095264] <- "PDGFRA"
+FACETSResults$Gene[FACETSResults$chrom == 1 & FACETSResults$start<204542871 & FACETSResults$end>204485511] <- "MDM4"
+FACETSResults$Gene[FACETSResults$chrom == 2 & FACETSResults$start<16087129 & FACETSResults$end>16080683] <- "MYCN"
+AmplificationsOnly <- FACETSResults %>% filter(tcn.em >9) %>% select(Patient, Gene) %>% filter(!is.na(Gene)) %>% distinct() %>%left_join(FACETSResults)%>% group_by(ID, Gene)%>%summarize(CN = mean(tcn.em))%>%left_join(InputFile)
+
+ggplot(AmplificationsOnly, aes(x=Patient, y = CN,  fill = Patient))+
+  geom_boxplot()+
+  geom_jitter()+
+  theme_bw()+
+  scale_fill_manual(values = PatientColors)+
+  facet_grid(.~Gene, scales = "free", space = "free")+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(strip.text.y = element_text( size = 12, angle = 0))+
+  theme(legend.position = "none")+
+  labs(y = "Copy Number (CN)")+
+  geom_hline(yintercept = 2, color = "red",linetype='dotted')
+
+
+
+FACETSResults$Gene[FACETSResults$chrom == 9 & FACETSResults$start<21975132 & FACETSResults$end>21967751] <- "CDKN2A"
+FACETSResults$Gene[FACETSResults$chrom == 10 & FACETSResults$start<89728532 & FACETSResults$end>89623195] <- "PTEN"
+FACETSResults$Gene[FACETSResults$chrom == 13 & FACETSResults$start<49056026 & FACETSResults$end>48877883] <- "RB1"
+FACETSResults$Gene[FACETSResults$chrom == 17 & FACETSResults$start<7590868 & FACETSResults$end>7571720] <- "TP53"
 
