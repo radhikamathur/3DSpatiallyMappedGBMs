@@ -2,7 +2,7 @@
 
 #initialize
 library(pacman)
-p_load(ggplot2, tidyverse, RColorBrewer, ggpubr, openxlsx, ggrepel, ComplexHeatmap, janitor)
+p_load(ggplot2, tidyverse, RColorBrewer, ggpubr, openxlsx, ggrepel, ComplexHeatmap, circlize, janitor)
 dataPath <- '~/Dropbox/Postdoc/Papers/ATAC Paper/'
 PatientColors = c('P455' = "#ff7500", 'P475' = "#ae7000", "P498" = "#44cef6","P500" = "#1bd1a5", "P503" = "#FFD92F", "P519" = "#8d4bbb","P521" = "#ff0097", "P524" = "#BEBEBE", "P529" = "#0B0B45", "P530" = "#FF0000")
 RNAcolors <- c('Classical' = "#3e5063", 'Mesenchymal' = '#0433ff', 'Proneural' = '#ff40ff', 'Neural' = '#ff9300')
@@ -271,9 +271,7 @@ draw(Heatmap, merge_legend = T, heatmap_legend_side = "bottom")
 RNASeq_All_Pivot <- RNA %>%pivot_longer(cols = -Gene, names_to = "ID", values_to = "RNA")
 RNASeq_All_Ordered <- InputFile %>% inner_join(RNASeq_All_Pivot)%>%select(ID, Patient, Sample, Purity, Dist, RNAsubtype, Gene, RNA)
 RNAModuleGenesBySample <- RNAModuleGenes%>% select(Module, Gene) %>% inner_join(RNASeq_All_Ordered)
-
 TurquoiseBrown <- RNAModuleGenesBySample  %>%filter(Module == "turquoise" |Module == "brown") %>%group_by(Sample, Module, Purity, RNAsubtype) %>%summarize(RNA = mean(RNA))%>%mutate(ModuleID = paste0("R_", Module))
-
 ggplot(TurquoiseBrown, aes(x = Purity, y = RNA, color = RNAsubtype, group = "none"))+
   geom_point()+
   facet_grid(. ~ModuleID, scales = "free", space = "free")+
@@ -286,9 +284,9 @@ ggplot(TurquoiseBrown, aes(x = Purity, y = RNA, color = RNAsubtype, group = "non
   stat_cor(method = "pearson", size =3)+
   labs(x = "Sample purity", y = "Average expression")
 
-##Fig4G
-PurityFigs <- RNAModuleGenesBySample %>%filter(Module == "ivory" |Module == "maroon"|Module == "brown2") %>%group_by(Patient, Sample, Module, Dist, Purity, RNAsubtype)%>%summarize(RNA = mean(RNA)) %>%mutate(ModuleID = paste0("R_", Module))%>%mutate(ModuleID = factor(ModuleID, levels = c("R_brown2", "R_maroon","R_ivory")))%>%mutate(Group = "Other")
-ggplot(PurityFigs, aes(x = Patient, y = RNA, fill = Patient))+
+##Fig4G - Modules with interpatient heterogeneity between P475 and remaining patients
+InterpatientModules <- RNAModuleGenesBySample %>%filter(Module == "ivory" |Module == "maroon"|Module == "brown2") %>%group_by(Patient, Sample, Module, Dist, Purity, RNAsubtype)%>%summarize(RNA = mean(RNA)) %>%mutate(ModuleID = paste0("R_", Module))%>%mutate(ModuleID = factor(ModuleID, levels = c("R_brown2", "R_maroon","R_ivory")))%>%mutate(Group = "Other")
+ggplot(InterpatientModules, aes(x = Patient, y = RNA, fill = Patient))+
   geom_boxplot()+
   facet_wrap(.~ModuleID, scales = "free")+
   scale_fill_manual(values = PatientColors)+
@@ -299,7 +297,7 @@ ggplot(PurityFigs, aes(x = Patient, y = RNA, fill = Patient))+
   labs(x = "Patient", y = "Average expression")+
   theme(axis.text.x = element_text(angle = 90))
 
-##Fig S4C
+##Fig S4C - Expression versus purity for modules in P475 versus remaining patients
 PurityFigs <- RNAModuleGenesBySample %>%filter(Module == "ivory" |Module == "maroon"|Module == "brown2"|Module == "turquoise") %>%group_by(Patient, Sample, Module, Dist, Purity, RNAsubtype)%>%summarize(RNA = mean(RNA)) %>%mutate(ModuleID = paste0("R_", Module))%>%mutate(ModuleID = factor(ModuleID, levels = c("R_turquoise", "R_brown2", "R_maroon","R_ivory")))%>%mutate(Group = "Other")
 PurityFigs$Group[PurityFigs$Patient == "P475"] <- "P475"
 ggplot(PurityFigs, aes(x = Purity, y = RNA, color = Patient, group = Group))+
@@ -314,11 +312,32 @@ ggplot(PurityFigs, aes(x = Purity, y = RNA, color = Patient, group = Group))+
   stat_cor(method = "pearson", size =3)+
   labs(x = "Sample purity", y = "Average expression")
 
+##Fig 4H/I Expression versus purity for individual genes showing differences between P475 and remaining patients
+SpecificGene <- "PTPRZ1"
+SpecificGene <- "PTN"
+SpecificGene <- "ETV1"
+SpecificGene <- "NKX2-1"
+SampleInfo <- InputFile%>%dplyr::select(Patient, Sample, Purity, Dist, RNAsubtype, ID)%>%mutate(Sample = as.factor(Sample))
+RNA_SpecificGene <- RNA %>% filter(Gene == SpecificGene) %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "RNA") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) %>%left_join(SampleInfo)
+
+P475vRest <-RNA_SpecificGene %>%mutate(Group = "Other")
+P475vRest$Group[P475vRest$Patient == "P475"] <- "P475"
+ggplot(P475vRest, aes(x=Purity, y = RNA, color = Patient, group = Group))+
+  geom_point()+
+  labs(title = SpecificGene, x= "Sample purity", y = "Gene Expression")+
+  theme_bw(base_size = 11)+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(strip.text.y = element_text( size = 12, angle = 0))+
+  theme(plot.title = element_text(lineheight=.8, face="italic",hjust = 0.5))+
+  geom_smooth(method='lm', se = F)+
+  stat_cor(method = "pearson", size =3)+
+  scale_color_manual(values = PatientColors)
+
+
 ##Fig 5A & Fig 5G- RNA modules by RNA subtype
 RNAModuleExpressionBySample <- RNAModuleGenesBySample %>% group_by(Module, ID, Patient, Sample, RNAsubtype) %>% summarize(RNA = mean(RNA))
 Verhaak <- RNAModuleExpressionBySample %>%filter(Module == "orangered3" |Module == "brown"|Module == "plum")%>%mutate(ModuleID = paste0("R_", Module)) ##Fig5A
 Verhaak <- RNAModuleExpressionBySample %>%filter(Module == "plum2" |Module == "midnightblue"|Module == "plum3"|Module == "darkred")%>%mutate(ModuleID = paste0("R_", Module)) %>%mutate(ModuleID = factor(ModuleID, levels = c("R_midnightblue", "R_plum2", "R_plum3", "R_darkred"))) ##Fig 5G
-
 ggplot(Verhaak, aes(x = RNAsubtype, y = RNA, fill = RNAsubtype))+
   geom_boxplot()+
   facet_wrap(.~ModuleID, scales = "free")+
@@ -337,7 +356,6 @@ Neural <- RNAModuleGenesBySample  %>%filter(Module == "orangered3" |Module == "b
 Neural %>% select(ID) %>% distinct()
 ModuleFill <- as.list(Neural$Module)
 names(ModuleFill) <- as.list(Neural$ModuleID)
-
 ggplot(Neural, aes(x = Sample, y = RNA, fill = ModuleID))+
   geom_boxplot()+
   facet_grid(.~Patient, scales = "free", space = "free")+
@@ -361,6 +379,38 @@ ggplot(Periph , aes(x = Dist, y = RNA, color = RNAsubtype, group = "none"))+
   stat_cor(method = "pearson", size =3)+
   labs(x = "Distance from centroid", y = "Average expression")
 
+##Fig 5H - Correlation matrix for microenvironmental RNA modules 
+Microenvironment <- ModuleAnnot %>% filter(`RNA module (R_)` == "blue" | `RNA module (R_)` == "midnightblue" | `RNA module (R_)` == "greenyellow"| `RNA module (R_)` == "midnightblue"| `RNA module (R_)` == "plum2"| `RNA module (R_)` == "plum3"| `RNA module (R_)` == "darkred"| `RNA module (R_)` == "brown"| `RNA module (R_)` == "plum"| `RNA module (R_)` == "orangered3")
+MicroenvironmentCols <- Microenvironment %>% dplyr::select(starts_with("P4")|starts_with("P5"))%>% mutate_if(is.character,as.numeric)%>% as.matrix()
+rownames(MicroenvironmentCols) <- Microenvironment$ModuleID
+cor_matrix <- round(cor(t(MicroenvironmentCols)), 3) 
+ModuleMatrixHeatmap <- Heatmap(cor_matrix, name = "Correlation", column_names_gp = gpar(fontsize = 10, fontface = "italic"),row_names_gp = gpar(fontsize = 10,fontface = "italic"), col = colorRamp2(c(-1,0,1), c('blue', 'white', 'red')))
+draw(ModuleMatrixHeatmap)
+
+
+##Fig6I - NEUROD1 gene expression by patient
+SpecificGene = "NEUROD1"
+RNA_SpecificGene <- RNA %>% filter(Gene == SpecificGene) %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "RNA") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) 
+ggplot(RNA_SpecificGene, aes(x=Patient, y = RNA, fill = Patient))+
+  geom_boxplot()+
+  geom_point()+
+  scale_fill_manual(values =PatientColors)+
+  labs(title = paste0("Gene expression: ", SpecificGene), x = NULL, y = "NEUROD1 gene expression")+
+  theme_bw(base_size = 11)+
+  theme(legend.position = "none")+ 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+##Fig6K - SOX9 versus SOX10 gene expression in P521
+SOX9 <- RNA %>% filter(Gene == "SOX9") %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "SOX9") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) %>%select(-Gene)
+SOX10 <- RNA %>% filter(Gene == "SOX10") %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "SOX10") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) %>%select(-Gene)
+SOX9_10 <- left_join(SOX9, SOX10)%>%left_join(SampleInfo)%>%filter(Patient != "P475")
+SOX_P521 <- SOX9_10 %>%filter(Patient == "P521")%>%pivot_longer(cols = c("SOX9", "SOX10"), names_to = "Gene", values_to = "RNA")%>%mutate(Gene = factor(Gene, levels = c("SOX9", "SOX10")))
+ggplot(SOX_P521, aes(x=Gene, y = RNA, label = Sample, color = RNAsubtype))+
+  theme_bw(base_size = 11)+
+  geom_point()+
+  geom_label_repel(size = 3)+
+  labs(x=NULL,y="Gene expression")+
+  scale_color_manual(values = RNAcolors)
 
 
 
