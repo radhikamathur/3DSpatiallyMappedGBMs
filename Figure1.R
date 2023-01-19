@@ -2,7 +2,7 @@
 
 #initialize
 library(pacman)
-p_load(ggplot2, tidyverse, RColorBrewer, ggpubr, openxlsx)
+p_load(ggplot2, tidyverse, RColorBrewer, ggpubr, openxlsx, usethis)
 dataPath <- '~/Dropbox/Postdoc/Papers/ATAC Paper/'
 
 ##Fig1C: Pairwise distances between PyClone-defined clusters for P529 and P530##
@@ -46,4 +46,31 @@ ggplot(pyclone_only, aes(x=MatchingPyClone, y=Distance, fill = MatchingPyClone))
   theme(axis.text.x = element_text(angle = 90))+
   stat_compare_means(method = "t.test", vjust = 1)
 
+## Fig 1H: Plot purity versus CEL
+PatientColors = c('P455' = "#ff7500", 'P475' = "#ae7000", "P498" = "#44cef6","P500" = "#1bd1a5", "P503" = "#FFD92F", "P519" = "#8d4bbb","P521" = "#ff0097", "P524" = "#BEBEBE", "P529" = "#0B0B45", "P530" = "#FF0000")
+
+CEL <-InputFile %>% filter(!is.na(CEL))%>% filter(CEL != "Border")
+CEL$MRI <- "CEL"
+CEL$MRI[CEL$CEL == "No"] <- "NE"
+ggplot(CEL, aes(x = CEL, y = Purity, color=Patient, group = CEL))+
+  geom_boxplot()+
+  geom_jitter()+
+  labs(x = "Contrast-enhancing (CE)")+
+  theme_bw(base_size = 11)+
+  theme(plot.title = element_text(lineheight=.8, face="bold",hjust = 0.5))+
+  scale_color_manual(values = PatientColors)+
+  stat_compare_means(method = "t.test")+
+  theme(legend.position = "none")+
+  ylim(-0.05,1.05)
+
+##Fig 1J: plot purity versus distance
+ggplot(InputFile, aes(Dist, Purity, color=Patient, group = "none"))+
+  geom_point(position=position_jitter(h=0.05, w=0.05))+
+  labs(x = "Distance", y = "Purity")+
+  theme_bw(base_size = 11)+
+  theme(plot.title = element_text(lineheight=.8, face="bold",hjust = 0.5))+ 
+  geom_smooth(method='lm', se = FALSE)+
+  stat_cor(method = "pearson", size =3)+
+  scale_color_manual(values = PatientColors)+
+  xlim(0,1.06)+ylim(0,1)
 
