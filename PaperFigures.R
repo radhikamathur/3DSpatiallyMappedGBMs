@@ -10,12 +10,14 @@ RNAcolors_heatmap <- list(Subtype = c('Classical' = "#3e5063", 'Mesenchymal' = '
 
 #read in files
 InputFile <-  read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS1.xlsx'), startRow = 2)
+SampleInfo <- InputFile%>%dplyr::select(Patient, Sample, Purity, Dist, RNAsubtype, ID)%>%mutate(Sample = as.factor(Sample))
 PyCloneClusters <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS2.xlsx'), sheet = 2)
 FACETSResults <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS2.xlsx'), sheet = 4)
 RNA <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'), sheet = 1)
 Signatures <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'), sheet = 2)
 RNAModules <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'), fillMergedCells = TRUE, sheet = 3) %>%row_to_names(1)
 RNAModuleGenes <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'),sheet = 4)
+scATAC_geneactivity <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS5.xlsx'))
 
 ##Fig1C: Pairwise distances between PyClone-defined clusters for P529 and P530##
 
@@ -317,7 +319,6 @@ SpecificGene <- "PTPRZ1"
 SpecificGene <- "PTN"
 SpecificGene <- "ETV1"
 SpecificGene <- "NKX2-1"
-SampleInfo <- InputFile%>%dplyr::select(Patient, Sample, Purity, Dist, RNAsubtype, ID)%>%mutate(Sample = as.factor(Sample))
 RNA_SpecificGene <- RNA %>% filter(Gene == SpecificGene) %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "RNA") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) %>%left_join(SampleInfo)
 
 P475vRest <-RNA_SpecificGene %>%mutate(Group = "Other")
@@ -365,7 +366,7 @@ ggplot(Neural, aes(x = Sample, y = RNA, fill = ModuleID))+
   ylab("Gene expression")+ theme(legend.title = element_blank(), legend.text = element_text(face = "italic"))
 
 
-#Fig 5C - Modules enriched towards the periphery 
+#Fig 5C - RNA modules enriched towards the periphery 
 Periph <- RNAModuleGenesBySample  %>%filter(Module == "darkseagreen4" |Module == "lightcoral"|Module == "pink") %>%group_by(Sample, Module, Dist, RNAsubtype) %>%summarize(RNA = mean(RNA))%>%mutate(ModuleID = paste0("R_", Module))
 ggplot(Periph , aes(x = Dist, y = RNA, color = RNAsubtype, group = "none"))+
   geom_point()+
@@ -386,6 +387,102 @@ rownames(MicroenvironmentCols) <- Microenvironment$ModuleID
 cor_matrix <- round(cor(t(MicroenvironmentCols)), 3) 
 ModuleMatrixHeatmap <- Heatmap(cor_matrix, name = "Correlation", column_names_gp = gpar(fontsize = 10, fontface = "italic"),row_names_gp = gpar(fontsize = 10,fontface = "italic"), col = colorRamp2(c(-1,0,1), c('blue', 'white', 'red')))
 draw(ModuleMatrixHeatmap)
+
+##Fig 5I - scATAC cell distributions by sample and neoplastic status
+cell_annotations_count <- scATAC_geneactivity %>% group_by(Patient, Sample) %>% summarize(Count = n())
+ggplot(cell_annotations_count, aes(x=Patient, y = Count, fill = Sample))+
+  geom_col(colour = "black")+
+  geom_text(aes(label = Sample),position = "stack", vjust = 1.5, size = 3.5)+
+  theme_bw(base_size = 10)+
+  scale_fill_brewer(palette = "Set1", direction = -1)+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(legend.position = "none")+
+  ylab("Number of cells")
+
+ggplot(scATAC_geneactivity, aes(x=UMAP_1, y = UMAP_2, color = Sample))+
+  geom_point(size = 1, shape = 16, alpha = 0.7)+
+  facet_grid(.~Patient, scales = "free")+
+  theme_bw(base_size = 11)+
+  scale_color_brewer(palette = "Set1", direction = -1)+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(strip.text.y = element_text( size = 12))+
+  theme(legend.position = "none")+
+  labs(title = "Samples")
+
+ggplot(scATAC_geneactivity, aes(x=Patient, fill = Neoplastic))+
+  geom_bar(colour = "black")+
+  theme_bw(base_size = 11)+
+  #scale_fill_brewer(palette = "Set1", direction = -1)+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(legend.position = "bottom")+
+  scale_fill_manual(values = c("azure4", "deeppink3"))+
+  ylab("Number of cells")
+
+ggplot(scATAC_geneactivity, aes(x=UMAP_1, y = UMAP_2, color = Neoplastic))+
+  geom_point(size = 1, shape = 16, alpha = 0.7)+
+  facet_grid(~Patient, scales = "free")+
+  theme_bw(base_size = 11)+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(strip.text.y = element_text( size = 12))+
+  scale_color_manual(values = c("azure4", "deeppink3"))+
+  theme(legend.position = "none")+
+  labs(title = "Neoplastic")
+
+#Fig S5D: Neoplastic and non-neoplastic cell count by sample
+ggplot(scATAC_geneactivity, aes(x=Sample, fill = Neoplastic))+
+  geom_bar(colour = "black")+
+  theme_bw(base_size = 11)+
+  #scale_fill_brewer(palette = "Set1", direction = -1)+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(legend.position = "bottom")+
+  facet_grid(.~Patient, scales = "free", space = "free")+
+  scale_fill_manual(values = c("azure4", "deeppink3"))+
+  ylab("Number of cells")
+
+#Fig S5E: Neoplastic % in scATAC versus purity from bulk WES
+neoplastic_percent <- scATAC_geneactivity %>%group_by(ID) %>% summarize(Neoplastic = mean(Neoplastic))%>%left_join(SampleInfo)
+ggplot(neoplastic_percent, aes(x=Neoplastic, y = Purity, group = "none", label = Sample))+
+  geom_smooth(method='lm', se = F)+
+  geom_point()+
+  theme_bw(base_size = 11)+
+  xlim(0,1)+ylim(0,1)+
+  xlab("% neoplastic (scATAC)")+ ylab("Purity (bulk exome)")+
+  stat_cor(method = "pearson", size =3)+
+  theme(legend.position = "bottom")
+
+# Fig 5J/K - scATAC gene activity scores for RNA modules
+scATAC_geneactivity_longer <- scATAC_geneactivity%>% pivot_longer(cols = 8:ncol(scATAC_geneactivity), names_to = "ModuleID", values_to = "Score") %>%arrange(Score)
+scATAC_gene_select <- scATAC_geneactivity_longer %>%filter(ModuleID == "R_blue" | ModuleID == "R_midnightblue"| ModuleID == "R_brown"|ModuleID == "R_maroon"| ModuleID == "R_darkred"| ModuleID == "R_plum2"| ModuleID == "R_plum3")%>%arrange(Score)
+scATAC_gene_select$ModuleID <- factor(scATAC_gene_select$ModuleID, levels = c('R_maroon', 'R_brown', 'R_blue', 'R_midnightblue', 'R_plum2', 'R_plum3', 'R_darkred'))
+
+ggplot(scATAC_gene_select, aes(x=UMAP_1, y = UMAP_2, color = Score))+
+  geom_point(size = 1, shape = 16, alpha = 0.7)+
+  facet_grid(ModuleID~Patient, scales = "free")+
+  theme_bw(base_size = 11)+
+  scale_color_viridis_c(option = "inferno", direction = -1, limits = c(0, 0.003))+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(strip.text.y = element_text( size = 12, face = "italic"))+
+  #theme(plot.title = element_text(lineheight=.8, face="bold",hjust = 0.5))+
+  #theme(legend.position = "none")+
+  labs(title = "Gene activity score")
+
+ggplot(scATAC_gene_select, aes(x= Neoplastic, y = Score, color = Neoplastic))+
+  geom_jitter()+
+  geom_boxplot(color = "black", fill = NA, outlier.shape = NA)+
+  theme_bw(base_size = 11)+
+  scale_color_manual(values = c("azure4", "deeppink3"))+
+  facet_grid(.~ModuleID, scales = "free", space = "free")+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(strip.text.x = element_text( size = 12, angle = 0, face = "italic"))+
+  theme(axis.text.x = element_text(angle = 90))+
+  theme(legend.position = "none")+
+  stat_compare_means(method = "t.test", label.y = 0.004)
+
+#Fig S5F - Correlation matrix for scATAC immune/mesenchymal modules
+matrix_geneactivity <- scATAC_geneactivity %>% select(R_blue, R_midnightblue, R_greenyellow, R_darkred, R_plum2, R_plum3)%>%as.matrix()
+cor_matrix <- round(cor(matrix_geneactivity), 3) 
+MatrixHeatmap <- Heatmap(cor_matrix, name = "Correlation", clustering_method_columns = 'ward.D2', clustering_method_rows = 'ward.D2', column_names_gp = gpar(fontsize = 8, fontface = "italic"),row_names_gp = gpar(fontsize = 8, fontface = "italic"), col = rev(brewer.pal(n = 11, name = "RdYlBu")))
+draw(MatrixHeatmap)
 
 
 ##Fig6I - NEUROD1 gene expression by patient
