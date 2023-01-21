@@ -15,9 +15,15 @@ PyCloneClusters <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS2.x
 FACETSResults <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS2.xlsx'), sheet = 4)
 RNA <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'), sheet = 1)
 Signatures <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'), sheet = 2)
-RNAModules <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'), fillMergedCells = TRUE, sheet = 3) %>%row_to_names(1)
+RNAModules <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'), fillMergedCells = TRUE, sheet = 3) %>%row_to_names(1)%>%mutate(ModuleID = paste0("R_", `RNA module (R_)`), Genes = as.numeric(Genes), PurityR = as.numeric(PurityR), DistR = as.numeric(DistR))%>%relocate(ModuleID)
 RNAModuleGenes <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'),sheet = 4)
 scATAC_geneactivity <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS5.xlsx'))
+ATACModules <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS6.xlsx'), fillMergedCells = TRUE, sheet = 1) %>%row_to_names(1)%>%mutate(Peaks = as.numeric(Peaks), PurityR = as.numeric(PurityR), DistR = as.numeric(DistR))
+scATAC_peaks <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS7.xlsx'), sheet = 1)
+scATAC_amps <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS7.xlsx'), sheet = 2)
+AdultFetalBrain <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS7.xlsx'), sheet = 3)
+PeakCorrelations <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS6.xlsx'), sheet = 2)
+GeneCorrelations <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'), sheet = 5)
 
 ##Fig1C: Pairwise distances between PyClone-defined clusters for P529 and P530##
 
@@ -248,7 +254,7 @@ ggplot(SubtypePlot, aes(x = RNAsubtype, y = Dist, fill = RNAsubtype))+
   scale_fill_manual(values = RNAcolors)
 
 ##Fig3C: RNA module heatmap
-ModuleAnnot <- RNAModules %>%mutate(ModuleID = paste0("R_", `RNA module (R_)`), Genes = as.numeric(Genes), PurityR = as.numeric(PurityR), DistR = as.numeric(DistR))%>%relocate(ModuleID)
+ModuleAnnot <- RNAModules 
 colors_module = as.character(ModuleAnnot$`RNA module (R_)`)
 ModuleRowAnnot <- rowAnnotation(annotation_name_side = "top", 
                                 Module = anno_text(ModuleAnnot$ModuleID, gp = gpar(fontsize = 7.5, fontface = "italic")),
@@ -484,6 +490,60 @@ cor_matrix <- round(cor(matrix_geneactivity), 3)
 MatrixHeatmap <- Heatmap(cor_matrix, name = "Correlation", clustering_method_columns = 'ward.D2', clustering_method_rows = 'ward.D2', column_names_gp = gpar(fontsize = 8, fontface = "italic"),row_names_gp = gpar(fontsize = 8, fontface = "italic"), col = rev(brewer.pal(n = 11, name = "RdYlBu")))
 draw(MatrixHeatmap)
 
+##Fig6C - ATAC & linkage module heatmap
+SampleCols <- ATACModules%>% dplyr::select(starts_with("P4")|starts_with("P5"))%>% mutate_if(is.character,as.numeric)%>% as.matrix()
+SampleAnnot <- InputFile %>% filter(ID %in% colnames(SampleCols))%>% mutate(Sample = as.factor(Sample))
+SampleAnnot$Dist[SampleAnnot$ID == "P521_5"] <- 1.2
+sample_annotation_top = HeatmapAnnotation(Sample = anno_text(SampleAnnot$Sample, rot = 0, just = "top", gp = gpar(fontsize = 8)))
+sample_annotation_bottom = HeatmapAnnotation(Purity = anno_barplot(SampleAnnot$Purity, gp = gpar(fill = SampleAnnot$Color), axis_param = list(side = "right")),annotation_name_side = "left", annotation_name_rot = 0,gap = unit(2, "mm"),
+                                             Dist = anno_points(SampleAnnot$Dist, ylim = c(0, 1.2), gp = gpar(col = "black"), axis_param = list(side = "right",at = c(0,1), labels = c("Centroid", "Periphery"))),
+                                             Subtype = SampleAnnot$RNAsubtype, col = RNAcolors_heatmap)
+ModuleAnnot <- ATACModules
+colors_module = as.character(ModuleAnnot$Module)
+ModuleRowAnnot <- rowAnnotation(annotation_name_side = "top",
+                                Module = anno_text(ModuleAnnot$ModuleID,gp = gpar(fontsize = 7.5, fontface = "italic")),
+                                Peaks = anno_barplot(ModuleAnnot$Peaks, width = unit(1.6, "cm"),gp = gpar(fill = colors_module, fontsize = 8), axis_param = list(side = "top")), 
+                                Motif = anno_text(ModuleAnnot$`Top Motif (p-value)`, gp = gpar(fontsize = 7.5)),
+                                TopGene = anno_text(ModuleAnnot$`Top Linked Gene (# peaks)`, gp = gpar(fontsize = 7.5)),
+                                PurityR = anno_barplot(ModuleAnnot$PurityR, width = unit(1.5, "cm"), gp = gpar(fill = colors_module), axis_param = list(side = "top")),
+                                  DistR = anno_barplot(ModuleAnnot$DistR, width = unit(1.5, "cm"), gp = gpar(fill = colors_module), axis_param = list(side = "top")))
+
+
+PeaksBySampleHeatmap <- Heatmap(SampleCols, name = "Average ATAC signal",  bottom_annotation = sample_annotation_bottom, cluster_columns = T, cluster_column_slices = F,
+                                cluster_row_slices = F, right_annotation = ModuleRowAnnot, show_row_names = F,top_annotation = sample_annotation_top,
+                                clustering_method_columns = 'ward.D2', clustering_method_rows = 'ward.D2',
+                                column_split = SampleAnnot$Patient, 
+                                row_split = ModuleAnnot$ModuleSet,row_title = c("ATAC Modules", "Linkage Modules"),
+                                show_column_names = F,
+                                column_names_gp = gpar(fontsize = 8),row_names_gp = gpar(fontsize = 8), 
+                                col = rev(brewer.pal(n = 11, name = "RdYlBu")))
+draw(PeaksBySampleHeatmap, heatmap_legend_side = "bottom", merge_legend = T)
+
+## Fig6F - scATAC read-in-peak UMAPs for modules associated with microenvironment
+scATAC_P521 <-  scATAC_peaks %>%filter(Patient == "P521") %>% pivot_longer(8:ncol(scATAC_peaks), names_to = "Module", values_to = "Score")%>%filter(Module == "A_thistle"|Module == "A_lavenderblush2"|Module == "A_magenta4")%>%arrange(Score)
+ggplot(scATAC_P521, aes(x=UMAP_1, y = UMAP_2, color = Score))+
+  geom_point(size = 1, shape = 16, alpha = 0.7)+
+  facet_grid(.~Module, scales = "free")+
+  theme_bw(base_size = 11)+
+  scale_color_viridis_c(option = "inferno", direction = -1)+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(strip.text.x = element_text( size = 12, face = "italic"))
+
+## Fig6F - Comparing ATAC modules to adult and fetal brain published scATAC datasets
+AdultFetalBrain_longer <- AdultFetalBrain %>% pivot_longer(3:ncol(AdultFetalBrain), names_to = "Module", values_to = "value")
+AdultOnly <- AdultFetalBrain_longer %>% filter(Module == "A_thistle1"|Module == "A_honeydew"|Module == "L_mediumpurple1"|Module == "A_lavenderblush2"|Module == "A_coral"|Module == "L_coral"|Module == "A_magenta4"|Module == "A_skyblue4"|Module == "L_plum2"|Module == "A_plum3"|Module == "A_yellowgreen")%>%arrange(desc(value))
+topcells <- AdultOnly%>%filter(Set != "Fetal") %>%filter(Cell == "Oligodendrocyte"|Cell == "Microglia"|Cell == "Glutaminergic Neuron 2"|Cell == "Oligodendrocyte Precursor"|Cell == "Astrocyte 1")%>%pivot_wider(id_cols = c(Set, Cell), names_from = Module, values_from = value)%>%arrange(Cell, Set)%>%mutate(Cell = gsub("1", "", Cell), Cell = gsub("2", "", Cell), Cell = gsub("Glutaminergic", "", Cell), Cell = gsub("Oligodendrocyte Precursor", "OPC", Cell))
+ColAnnot <- HeatmapAnnotation(Set =topcells$Set, Cell = anno_text(topcells$Cell))
+heatmap <- Heatmap(t(as.matrix(topcells[,3:ncol(topcells)])), bottom_annotation = ColAnnot, cluster_columns = F,row_names_gp = gpar(fontface = "italic"), name = "Value",
+                   col = rev(brewer.pal(n = 11, name = "RdYlBu")))
+draw(heatmap)
+
+FetalOnly <- AdultFetalBrain_longer %>% filter(Module == "A_coral"|Module == "L_coral"|Module == "A_lavenderblush2"|Module == "L_navajowhite1"|Module == "A_darkseagreen3"|Module == "A_thistle"|Module == "A_plum"|Module == "L_darkseagreen4"|Module == "A_indianred4"|Module == "A_maroon"|Module == "L_coral2")%>%arrange(desc(value))
+topcells <- FetalOnly%>%filter(Set == "Fetal") %>%filter(Cell != "Microglia")%>%pivot_wider(id_cols = c(Set, Cell), names_from = Module, values_from = value)%>%arrange(Cell, Set)
+ColAnnot <- HeatmapAnnotation(Set =topcells$Set, Cell = anno_text(topcells$Cell))
+heatmap <- Heatmap(t(as.matrix(topcells[,3:ncol(topcells)])), bottom_annotation = ColAnnot,row_names_gp = gpar(fontface = "italic"), name = "Value",                  col = rev(brewer.pal(n = 11, name = "RdYlBu")))
+draw(heatmap)
+
 
 ##Fig6I - NEUROD1 gene expression by patient
 SpecificGene = "NEUROD1"
@@ -509,6 +569,140 @@ ggplot(SOX_P521, aes(x=Gene, y = RNA, label = Sample, color = RNAsubtype))+
   labs(x=NULL,y="Gene expression")+
   scale_color_manual(values = RNAcolors)
 
+## Fig6L - scATAC amplification calls for EGFR versus PDGFRA
+P521_amps <- scATAC_amps %>%filter(Patient == "P521")%>%left_join(scATAC_peaks)
+P521_amps$Amp[P521_amps$egfr == 1] <- "EGFR"
+P521_amps$Amp[P521_amps$pdgfr == 1] <- "PDGFRA"
+ggplot(P521_amps, aes(x=UMAP_1, y = UMAP_2, color = Amp))+
+  geom_point(size = 1, shape = 16, alpha = 0.7)+
+  facet_grid(~Patient, scales = "free")+
+  theme_bw(base_size = 11)+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(strip.text.y = element_text( size = 12))+
+  scale_color_manual(values = c("EGFR" = "#BBAED1", "PDGFRA" = "#90C786"))
+
+## Fig6M - scATAC read-in-peak UMAPs for modules with intratumoral heterogeneity in P521
+scATAC_P521 <-  scATAC_peaks %>%filter(Patient == "P521") %>% pivot_longer(8:ncol(scATAC_peaks), names_to = "Module", values_to = "Score")%>%filter(Module == "A_plum3"|Module == "A_yellowgreen")%>%arrange(Score)
+ggplot(scATAC_P521, aes(x=UMAP_1, y = UMAP_2, color = Score))+
+  geom_point(size = 1, shape = 16, alpha = 0.7)+
+  facet_grid(.~Module, scales = "free")+
+  theme_bw(base_size = 11)+
+  scale_color_viridis_c(option = "inferno", direction = -1)+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(strip.text.x = element_text( size = 12, face = "italic"))
+
+##Fig 6N: scATAC read-in-peak score by EGFR versus PDGFRA amplification in P521
+P521_plot <- P521_amps%>%filter(!is.na(Amp))%>%select(Amp, A_plum3, A_yellowgreen, A_coral) %>%pivot_longer(cols = -Amp, names_to = "Module", values_to = "Score")%>%mutate(Module = factor(Module, levels = c("A_plum3", "A_yellowgreen", "A_coral")))
+ggplot(P521_plot, aes(x = Amp, y = Score, fill = Amp))+
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid(.~Module)+
+  theme_bw(base_size = 11)+
+  stat_compare_means(method = "t.test", size = 3, label = "p.format")+
+  scale_fill_manual(values = c("EGFR" = "#BBAED1", "PDGFRA" = "#90C786"))+
+  theme(axis.text.x = element_text(angle = 90))+
+  theme(strip.text.x = element_text(face = "italic", angle = 0))+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  labs(x = "Amplification")+ylim(0,4)
+
+##Fig 7A - Association of L_salmon module with EGFR amplification
+ATACModuleFigs <- ATACModules %>% dplyr::select(ModuleID|starts_with("P4")|starts_with("P5"))%>% pivot_longer(cols = -ModuleID, names_to = "ID", values_to ="ATACsignal")%>%mutate(ATACsignal = as.numeric(ATACsignal))%>%left_join(SampleInfo)
+salmon4 <- ATACModuleFigs %>%filter(ModuleID == "L_salmon4")
+EGFR_CN <-  FACETSResults %>%filter(Gene == "EGFR")%>%select(Patient, ID, tcn.em)%>%rename(EGFR_CN = tcn.em)
+EGFR_salmon4 <-   salmon4 %>% left_join(EGFR_CN)
+ggplot(EGFR_salmon4, aes(x = EGFR_CN, y = ATACsignal, color = Patient, group = "none"))+
+  geom_jitter()+
+  theme_bw(base_size = 11)+
+  scale_color_manual(values = PatientColors)+
+  labs(x = "EGFR total copy number", y = "L_salmon4 average ATAC signal")+ 
+  geom_smooth(method='lm', se = F)+
+  stat_cor(method = "pearson", size =3)
+
+##Fig 7B
+EGFR <- scATAC_peaks%>%filter(Patient == "P521"|Patient == "P529") %>% select(Cell, UMAP_1, UMAP_2, Neoplastic, L_salmon4)%>%left_join(scATAC_amps) %>%mutate(egfr = as.logical(egfr))%>%filter(Neoplastic == T)
+
+ggplot(EGFR, aes(x = egfr, y = L_salmon4, fill = egfr))+
+  geom_boxplot(outlier.shape = NA)+
+  facet_wrap(Patient ~ .)+  theme_bw(base_size = 11)+
+  stat_compare_means(method = "t.test", size = 3, label = "p.format")+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  stat_n_text(size = 3)+
+  labs(x= "EGFR amplification", y = "L_salmon4 scATAC score")+
+  scale_fill_brewer(palette = "Set1")
+
+##Fig 7E = ATAC modules by distance from centroid
+DistFig<- ATACModuleFigs  %>%filter(ModuleID == "L_mediumorchid" |ModuleID == "A_lavenderblush3" |ModuleID == "L_lightcyan1"|ModuleID == "L_thistle"|ModuleID == "L_orangered3") %>%mutate(ModuleID = factor(ModuleID, levels = c("L_mediumorchid", "A_lavenderblush3", "L_lightcyan1", "L_orangered3", "L_thistle")))
+ggplot(DistFig , aes(x = Dist, y = ATACsignal, color = RNAsubtype, group = "none"))+
+  geom_point()+
+  facet_wrap(. ~ModuleID, scales = "free", nrow = 1)+
+  scale_color_manual(values = RNAcolors)+
+  theme_bw(base_size = 10)+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(strip.text.x = element_text(face = "italic"))+
+  theme(legend.position = "bottom")+ theme(legend.title = element_blank())+
+  geom_smooth(method='lm', se = F)+
+  stat_cor(method = "pearson", size =3)+
+  labs(x = "Distance from centroid", y = "Average ATAC signal")
+
+##Fig7H -- Individual peaks and genes correlation with purity and distance
+
+PeakCorrelations_fig_AP1 <- PeakCorrelations %>% filter(ATACModule == "lavenderblush3"|LinkageModule == "lightcyan1"|LinkageModule == "orangered3"|LinkageModule == "thistle")%>%distinct(Peak, PurityR, DistR)%>%mutate(FigLabel = "AP1/Mesenchymal")
+PeakCorrelations_fig_mediumorchid <- PeakCorrelations %>% filter(LinkageModule == "mediumorchid")%>%distinct(Peak, PurityR, DistR)%>%mutate(FigLabel = "Neuronal hijacking")
+PeakCorrelations_fig_salmon4 <- PeakCorrelations %>% filter(LinkageModule == "salmon4")%>%distinct(Peak, PurityR, DistR)%>%mutate(FigLabel = "EGFR amplification")
+PeakCorrelations_fig_navajowhite1 <- PeakCorrelations %>% filter(LinkageModule == "navajowhite1"|ATACModule == "plum3"|ATACModule == "yellowgreen"|ATACModule == "darkseagreen3"|ATACModule == "thistle"|ATACModule == "plum")%>%distinct(Peak, PurityR, DistR)%>%mutate(FigLabel = "Neurodevelopmental")
+PeakCorrelations_fig_oligodendrocyte <- PeakCorrelations %>% filter(ATACModule == "lavenderblush2"|ATACModule == "coral"|LinkageModule == "coral")%>%distinct(Peak, PurityR, DistR)%>%mutate(FigLabel = "Oligodendrocyte")
+PeakCorrelations_fig_neuron <- PeakCorrelations %>% filter(ATACModule == "thistle1"|ATACModule == "honeydew"|LinkageModule == "mediumpurple1")%>%distinct(Peak, PurityR, DistR)%>%mutate(FigLabel = "Neuron")
+PeakCorrelations_fig_microglia <- PeakCorrelations %>% filter(ATACModule == "magenta4"|ATACModule == "skyblue4"|LinkageModule == "plum2")%>%distinct(Peak, PurityR, DistR)%>%mutate(FigLabel = "Microglia")
+
+Correlations_summary <- ATACModules
+Correlations_summary$FigLabel[Correlations_summary$ModuleID == "A_lavenderblush3" | Correlations_summary$ModuleID == "L_lightcyan1"| Correlations_summary$ModuleID == "L_orangered3" | Correlations_summary$ModuleID == "L_thistle"] <- "AP1/Mesenchymal"
+Correlations_summary$FigLabel[Correlations_summary$ModuleID == "L_mediumorchid"] <- "Neuronal hijacking"
+Correlations_summary$FigLabel[Correlations_summary$ModuleID == "L_navajowhite1"|Correlations_summary$ModuleID == "A_plum3"|Correlations_summary$ModuleID == "A_yellowgreen"|Correlations_summary$ModuleID == "A_darkseagreen3" | Correlations_summary$ModuleID == "A_thistle"| Correlations_summary$ModuleID == "A_plum"] <- "Neurodevelopmental"
+Correlations_summary$FigLabel[Correlations_summary$ModuleID == "L_salmon4"] <- "EGFR amplification"
+Correlations_summary$FigLabel[Correlations_summary$ModuleID == "A_lavenderblush2" | Correlations_summary$ModuleID == "A_coral"| Correlations_summary$ModuleID == "L_coral"] <- "Oligodendrocyte"
+Correlations_summary$FigLabel[Correlations_summary$ModuleID == "A_thistle1" | Correlations_summary$ModuleID == "A_honeydew"| Correlations_summary$ModuleID == "L_mediumpurple1"] <- "Neuron"
+Correlations_summary$FigLabel[Correlations_summary$ModuleID == "A_magenta4" | Correlations_summary$ModuleID == "A_skyblue4"| Correlations_summary$ModuleID == "L_plum2"] <- "Microglia"
+Correlations_summary <- Correlations_summary %>% filter(!is.na(FigLabel))%>%relocate(FigLabel)
+
+Number_peaks <- Correlations_summary %>% group_by(FigLabel)%>% summarize(Peaks = sum(Peaks))
+PeakCorrelations_fig <- bind_rows(PeakCorrelations_fig_AP1, PeakCorrelations_fig_mediumorchid, PeakCorrelations_fig_salmon4, PeakCorrelations_fig_navajowhite1, PeakCorrelations_fig_oligodendrocyte, PeakCorrelations_fig_neuron, PeakCorrelations_fig_microglia)%>%left_join(Number_peaks)%>%arrange(desc(Peaks))
+
+GeneCorrelations$FigLabel[GeneCorrelations$RNAModule == "brown"] <- "Oligodendrocyte"
+GeneCorrelations$FigLabel[GeneCorrelations$RNAModule == "plum"] <- "Astrocyte"
+GeneCorrelations$FigLabel[GeneCorrelations$RNAModule == "orangered3"] <- "Neuron"
+GeneCorrelations$FigLabel[GeneCorrelations$RNAModule == "blue"] <- "Microglia"
+GeneCorrelations$FigLabel[GeneCorrelations$RNAModule == "greenyellow"] <- "Interferon response"
+GeneCorrelations$FigLabel[GeneCorrelations$RNAModule == "midnightblue"|GeneCorrelations$RNAModule == "plum2"|GeneCorrelations$RNAModule == "plum3"|GeneCorrelations$RNAModule == "darkred"] <- "AP1/Mesenchymal"
+GeneCorrelations$FigLabel[GeneCorrelations$RNAModule == "pink"|GeneCorrelations$RNAModule == "darkseagreen4"|GeneCorrelations$RNAModule == "lightcoral"] <- "Neuronal hijacking"
+GeneCorrelations$FigLabel[GeneCorrelations$RNAModule == "maroon"|GeneCorrelations$RNAModule == "turquoise"|GeneCorrelations$RNAModule == "brown2"|GeneCorrelations$RNAModule == "ivory"] <- "Neurodevelopmental"
+
+GeneCorrelations <- GeneCorrelations %>%filter(!is.na(FigLabel))%>%arrange(desc(RNAModule))%>%rename(`RNA module (R_)` = RNAModule)
+RNAModuleSummary <- GeneCorrelations %>%distinct(`RNA module (R_)`, FigLabel)%>%left_join(RNAModules)%>%mutate(ModuleID = paste0("R_", `RNA module (R_)`))%>%mutate(PurityR = as.numeric(PurityR), DistR = as.numeric(DistR))
+
+FigLabelColors <- c("AP1/Mesenchymal","Oligodendrocyte","Neuronal hijacking","Neuron", "Neurodevelopmental","Microglia", "EGFR amplification","Astrocyte", "Interferon response")
+Colors = c("#e3342f", "#f66d9b", "#9561e2", "#ff781f", "#4dc0b5", "#3490dc", "#e1ad01", "#811453", "#8B8000")
+names(Colors) <- FigLabelColors
+
+ggplot(PeakCorrelations_fig, aes(x=PurityR, y = DistR, color = FigLabel, group = "none"))+
+  geom_point(aes(alpha = 0.8))+
+  labs(x= "Purity R", y= "Distance R")+
+  theme_bw(base_size = 11)+
+  theme(plot.title = element_text(lineheight=.8, face="bold",hjust = 0.5))+ 
+  geom_smooth(method='lm', se = FALSE)+
+  stat_cor(method = "pearson", size =3)+
+  geom_label_repel(data = Correlations_summary, aes(PurityR, DistR, label = ModuleID), size = 3, fontface = "italic")+
+  scale_color_manual(values = Colors, breaks=c("Oligodendrocyte", "Astrocyte", "Neuron", "Microglia", "Neurodevelopmental", "EGFR amplification", "Neuronal hijacking", "AP1/Mesenchymal", "Interferon response"))+
+  xlim(-1,1)+ylim(-0.6,0.6)
+
+ggplot(GeneCorrelations, aes(x=Gene_PurityR, y = Gene_DistR, color = FigLabel, group = "none"))+
+  geom_point(aes(alpha = 0.8))+
+  labs(x= "Purity R", y= "Distance R")+
+  theme_bw(base_size = 11)+
+  theme(plot.title = element_text(lineheight=.8, face="bold",hjust = 0.5))+ 
+  geom_smooth(method='lm', se = FALSE)+
+  stat_cor(method = "pearson", size =3)+
+  geom_label_repel(data = RNAModuleSummary, aes(PurityR, DistR, label = ModuleID), size = 3, fontface = "italic")+
+  scale_color_manual(values = Colors, breaks=c("Oligodendrocyte", "Astrocyte", "Neuron", "Microglia", "Neurodevelopmental", "EGFR amplification", "Neuronal hijacking", "AP1/Mesenchymal", "Interferon response"))+
+  xlim(-1,1)+ylim(-0.6,0.6)
 
 
 
