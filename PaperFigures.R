@@ -9,21 +9,22 @@ RNAcolors <- c('Classical' = "#3e5063", 'Mesenchymal' = '#0433ff', 'Proneural' =
 RNAcolors_heatmap <- list(Subtype = c('Classical' = "#3e5063", 'Mesenchymal' = '#0433ff', 'Proneural' = '#ff40ff', 'Neural' = '#ff9300'))
 
 #read in files
-InputFile <-  read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS1.xlsx'), startRow = 2)
+InputFile <-  read.xlsx(paste0(dataPath, 'SupplementaryTableS1.xlsx'), startRow = 2)
 SampleInfo <- InputFile%>%dplyr::select(Patient, Sample, Purity, Dist, RNAsubtype, ID)%>%mutate(Sample = as.factor(Sample))
-PyCloneClusters <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS2.xlsx'), sheet = 2)
-FACETSResults <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS2.xlsx'), sheet = 4)
-RNA <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'), sheet = 1)
-Signatures <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'), sheet = 2)
-RNAModules <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'), fillMergedCells = TRUE, sheet = 3) %>%row_to_names(1)%>%mutate(ModuleID = paste0("R_", `RNA module (R_)`), Genes = as.numeric(Genes), PurityR = as.numeric(PurityR), DistR = as.numeric(DistR))%>%relocate(ModuleID)
-RNAModuleGenes <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'),sheet = 4)
-scATAC_geneactivity <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS5.xlsx'))
-ATACModules <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS6.xlsx'), fillMergedCells = TRUE, sheet = 1) %>%row_to_names(1)%>%mutate(Peaks = as.numeric(Peaks), PurityR = as.numeric(PurityR), DistR = as.numeric(DistR))
-scATAC_peaks <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS7.xlsx'), sheet = 1)
-scATAC_amps <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS7.xlsx'), sheet = 2)
-AdultFetalBrain <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS7.xlsx'), sheet = 3)
-PeakCorrelations <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS6.xlsx'), sheet = 2)
-GeneCorrelations <- read.xlsx(paste0(dataPath, 'Supplement/SupplementaryTableS4.xlsx'), sheet = 5)
+PyCloneClusters <- read.xlsx(paste0(dataPath, 'SupplementaryTableS2.xlsx'), sheet = 2)
+FACETSResults <- read.xlsx(paste0(dataPath, 'SupplementaryTableS2.xlsx'), sheet = 4)
+RNA <- read.xlsx(paste0(dataPath, 'SupplementaryTableS4.xlsx'), sheet = 1)
+Signatures <- read.xlsx(paste0(dataPath, 'SupplementaryTableS4.xlsx'), sheet = 2)
+RNAModules <- read.xlsx(paste0(dataPath, 'SupplementaryTableS4.xlsx'), fillMergedCells = TRUE, sheet = 3) %>%row_to_names(1)%>%mutate(ModuleID = paste0("R_", `RNA module (R_)`), Genes = as.numeric(Genes), PurityR = as.numeric(PurityR), DistR = as.numeric(DistR))%>%relocate(ModuleID)
+RNAModuleGenes <- read.xlsx(paste0(dataPath, 'SupplementaryTableS4.xlsx'),sheet = 4)
+scATAC_geneactivity <- read.xlsx(paste0(dataPath, 'SupplementaryTableS5.xlsx'))
+ATACLinkages <- read.xlsx(paste0(dataPath, 'SupplementaryTableS6.xlsx'), sheet = 1)
+ATACModules <- read.xlsx(paste0(dataPath, 'SupplementaryTableS6.xlsx'), fillMergedCells = TRUE, sheet = 2) %>%row_to_names(1)%>%mutate(Peaks = as.numeric(Peaks), PurityR = as.numeric(PurityR), DistR = as.numeric(DistR))
+scATAC_peaks <- read.xlsx(paste0(dataPath, 'SupplementaryTableS7.xlsx'), sheet = 1)
+scATAC_amps <- read.xlsx(paste0(dataPath, 'SupplementaryTableS7.xlsx'), sheet = 2)
+AdultFetalBrain <- read.xlsx(paste0(dataPath, 'SupplementaryTableS7.xlsx'), sheet = 3)
+PeakCorrelations <- read.xlsx(paste0(dataPath, 'SupplementaryTableS6.xlsx'), sheet = 5)
+GeneCorrelations <- read.xlsx(paste0(dataPath, 'SupplementaryTableS4.xlsx'), sheet = 5)
 
 ##Fig1C: Pairwise distances between PyClone-defined clusters for P529 and P530##
 
@@ -147,7 +148,7 @@ ggplot(EGFR_P521, aes(x=CN, y = RNA,  label = Sample, color = Sample, group = "n
   scale_color_brewer(palette = "Set1")+
   theme(legend.position = "none")+
   #xlim(0, 25)+ylim(3,10)+
-  ylab ("Expression (log2tpm)")+
+  ylab ("Expression (log2tpm+1)")+
   ggtitle("EGFR (P521)")
 
 PDGFRA_P521 <-  GenesOnly_RNA %>% filter(Gene == "PDGFRA" & Patient == "P521") %>% mutate(Sample = as.factor(Sample))
@@ -160,7 +161,7 @@ ggplot(PDGFRA_P521, aes(x=CN, y = RNA,  label = Sample, color = Sample, group = 
   scale_color_brewer(palette = "Set1")+
   theme(legend.position = "none")+
   xlim(0, 25)+ylim(3,12)+
-  ylab ("Expression (log2tpm)")+
+  ylab ("Expression (log2tpm+1)")+
   ggtitle("PDGFRA (P521)")
 
 ##Fig S2C: CDKN2A and PTEN CN versus expression in P530
@@ -170,11 +171,11 @@ PTEN_P530$Region <- "Temporal"
 PTEN_P530$Region[PTEN_P530$Sample>9] <-  "Frontal"
 ggplot(PTEN_P530, aes(x=CN, y = RNA,  label = Sample, color = Region, group = "none"))+
   theme_bw()+
-  stat_cor(method = "pearson", size =4)+
-  geom_point()+
+  #stat_cor(method = "pearson", size =4)+
   geom_text_repel()+
-  #theme(legend.position = "none")+
-  ylab ("Expression (log2tpm)")+
+  geom_point()+
+  theme(legend.position = "bottom")+
+  ylab ("Expression (log2tpm+1)")+
   xlab("Copy number (CN)")+
   ggtitle("PTEN (P530)")+
   scale_color_manual(values = c( "deepskyblue4","deeppink4"))
@@ -184,14 +185,43 @@ CDKN2A_P530$Region <- "Temporal"
 CDKN2A_P530$Region[PTEN_P530$Sample>9] <-  "Frontal"
 ggplot(CDKN2A_P530, aes(x=CN, y = RNA,  label = Sample, color = Region, group = "none"))+
   theme_bw()+
-  stat_cor(method = "pearson", size =4)+
+  #stat_cor(method = "pearson", size =4)+
   geom_point()+
   geom_text_repel()+
   #theme(legend.position = "none")+
-  ylab ("Expression (log2tpm)")+
+  ylab ("Expression (log2tpm+1)")+
   xlab("Copy number (CN)")+
   ggtitle("CDKN2A (P530)")+
   scale_color_manual(values = c( "deepskyblue4","deeppink4"))
+
+##Fig2F/I: ATAC-Seq signal at MTAP and PTEN promoters
+ATAC_SpecificPeak <- ATACLinkages %>%filter(Gene == "MTAP" & Type == "Promoter")%>% pivot_longer(cols = 4:ncol(ATACLinkages), names_to = "ID", values_to = "ATAC")%>%left_join(SampleInfo)
+P530_plot <- ATAC_SpecificPeak %>%filter(Patient == "P530")%>%mutate(Sample = as.numeric(Sample), Region = "Frontal")
+P530_plot$Region[P530_plot$Sample<10] <- "Temporal"
+P530_plot <- P530_plot %>% mutate(Region = factor(Region, levels = c("Temporal", "Frontal")))
+ggplot(P530_plot, aes(x=Region, y = ATAC, fill = Region))+
+  geom_boxplot()+
+  geom_jitter()+
+  scale_fill_manual(values =c("#C371A5", "#4B91AD"))+
+  theme_bw(base_size = 12)+
+  theme(plot.title = element_text(lineheight=.8, hjust = 0.5))+
+  stat_compare_means(method = "t.test", vjust = -0.5)+
+  labs(title = "MTAP promoter", y = "ATAC signal (log2cpm+1)")+
+  theme(title = element_text(size = 12))
+
+ATAC_SpecificPeak <- ATACLinkages %>%filter(Gene == "PTEN" & Type == "Promoter")%>% pivot_longer(cols = 4:ncol(ATACLinkages), names_to = "ID", values_to = "ATAC")%>%left_join(SampleInfo)
+P530_plot <- ATAC_SpecificPeak %>%filter(Patient == "P530")%>%mutate(Sample = as.numeric(Sample), Region = "Frontal")
+P530_plot$Region[P530_plot$Sample<10] <- "Temporal"
+P530_plot <- P530_plot %>% mutate(Region = factor(Region, levels = c("Temporal", "Frontal")))
+ggplot(P530_plot, aes(x=Region, y = ATAC, fill = Region))+
+  geom_boxplot()+
+  geom_jitter()+
+  scale_fill_manual(values =c("#C371A5", "#4B91AD"))+
+  theme_bw(base_size = 12)+
+  theme(plot.title = element_text(lineheight=.8, hjust = 0.5))+
+  stat_compare_means(method = "t.test", vjust = -0.5)+
+  labs(title = "PTEN promoter", y = "ATAC signal (log2cpm+1)")+
+  theme(title = element_text(size = 12))
 
 ##Fig 2G, 2J, S2C: Gene expression comparisons between P530 frontal and temporal regions
 RNA_SpecificGenes <- RNA %>% filter(Gene == "SHLD2"|Gene == "PTEN"|Gene == "RNLS") %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "RNA") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) %>%mutate(Gene = gsub("SHLD2", "FAM35A", Gene))%>%mutate(Gene = factor(Gene, levels = c("PTEN", "FAM35A", "RNLS")))
@@ -205,12 +235,12 @@ ggplot(P530_plot, aes(x=Region, y = RNA, fill = Region))+
   geom_boxplot()+
   geom_jitter()+
   scale_fill_manual(values =c("#C371A5", "#4B91AD"))+
-  theme_bw(base_size = 14)+
-  theme(plot.title = element_text(lineheight=.8, hjust = 0.5))+
+  theme_bw(base_size = 12)+
   facet_wrap(Gene ~., scales = "free")+
   stat_compare_means(method = "t.test", vjust = -0.5)+
+  theme(strip.text = element_text(size = 12))+
   theme(strip.background = element_rect(colour="white", fill="white"))+
-  labs(y = "Gene expression (log2tpm)")
+  labs(y = "Gene expression (log2tpm+1)", x = NULL)
 
 
 ##Fig 3A: Verhaak heatmap
@@ -270,7 +300,7 @@ sample_annotation2 = HeatmapAnnotation(Purity = anno_barplot(SampleAnnot$Purity,
                                        Dist = anno_points(SampleAnnot$Dist, ylim = c(0, 1.2), gp = gpar(col = "black"), axis_param = list(side = "right",at = c(0,1), labels = c("Centroid", "Periphery"))),
                                        Subtype = SampleAnnot$RNAsubtype, col = RNAcolors_heatmap)
 
-Heatmap <- Heatmap(SampleCols, name = "Avg Expression",  show_row_names = F, show_column_names = F, right_annotation = ModuleRowAnnot, top_annotation = sample_annotation, bottom_annotation = sample_annotation2, column_split = SampleAnnot$Patient, 
+Heatmap <- Heatmap(SampleCols, name = "Average Expression",  show_row_names = F, show_column_names = F, right_annotation = ModuleRowAnnot, top_annotation = sample_annotation, bottom_annotation = sample_annotation2, column_split = SampleAnnot$Patient, 
                    clustering_method_columns = 'ward.D2', clustering_method_rows = 'ward.D2',
                    column_names_gp = gpar(fontsize = 8),row_names_gp = gpar(fontsize = 8), cluster_rows = T, cluster_column_slices = F, cluster_columns = T, col = rev(brewer.pal(n = 11, name = "RdYlBu")))
 draw(Heatmap, merge_legend = T, heatmap_legend_side = "bottom")
@@ -354,7 +384,7 @@ ggplot(Verhaak, aes(x = RNAsubtype, y = RNA, fill = RNAsubtype))+
   theme(strip.text.x = element_text(size = 11, face = "italic"))+
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())+
   theme(legend.position = "bottom")+
-  labs(y = "Gene expression",  x= NULL)+ theme(legend.title = element_blank())
+  labs(y = "Average expression",  x= NULL)+ theme(legend.title = element_blank())
 
 
 ##Fig 5B - Neural samples by RNA module
@@ -369,7 +399,7 @@ ggplot(Neural, aes(x = Sample, y = RNA, fill = ModuleID))+
   scale_fill_manual(values = ModuleFill)+
   theme_bw(base_size = 11)+
   theme(strip.background = element_rect(colour="white", fill="white"))+
-  ylab("Gene expression")+ theme(legend.title = element_blank(), legend.text = element_text(face = "italic"))
+  ylab("Average expression")+ theme(legend.title = element_blank(), legend.text = element_text(face = "italic"))
 
 
 #Fig 5C - RNA modules enriched towards the periphery 
@@ -617,9 +647,8 @@ ggplot(EGFR_salmon4, aes(x = EGFR_CN, y = ATACsignal, color = Patient, group = "
   geom_smooth(method='lm', se = F)+
   stat_cor(method = "pearson", size =3)
 
-##Fig 7B
+##Fig 7B - scATAC-level association of L_salmon module with EGFR amplification (in P521 and P529 with intratumoral heterogeneity)
 EGFR <- scATAC_peaks%>%filter(Patient == "P521"|Patient == "P529") %>% select(Cell, UMAP_1, UMAP_2, Neoplastic, L_salmon4)%>%left_join(scATAC_amps) %>%mutate(egfr = as.logical(egfr))%>%filter(Neoplastic == T)
-
 ggplot(EGFR, aes(x = egfr, y = L_salmon4, fill = egfr))+
   geom_boxplot(outlier.shape = NA)+
   facet_wrap(Patient ~ .)+  theme_bw(base_size = 11)+
@@ -628,6 +657,30 @@ ggplot(EGFR, aes(x = egfr, y = L_salmon4, fill = egfr))+
   stat_n_text(size = 3)+
   labs(x= "EGFR amplification", y = "L_salmon4 scATAC score")+
   scale_fill_brewer(palette = "Set1")
+
+##Fig7C - ELOVL2 and NOVA1 enhancer ATAC signal verus expression colored by EGFR_CN
+
+ELOVL2_enhancer <- ATACLinkages %>%filter(Peak == "chr6:11035803-11036303")%>%select(-Gene, -Type, -Peak)%>% pivot_longer(cols = everything(), names_to = "ID", values_to = "ATAC")
+ELOVL2_gene <- RNA %>%filter(Gene == "ELOVL2")%>% dplyr::select(-Gene)%>% pivot_longer(cols = everything(), names_to = "ID", values_to = "RNA")
+MergedSignal <- left_join(ELOVL2_enhancer,ELOVL2_gene, by = "ID")%>%left_join(EGFR_CN)
+ggplot(MergedSignal, aes(x=ATAC, y = RNA, color = EGFR_CN, group = "none"))+
+  geom_point()+
+  theme_bw(base_size=11)+ theme(plot.title = element_text(face = "bold"))+ 
+  geom_smooth(method='lm')+  
+  stat_cor(method = "pearson", size =3)+
+  labs(x = paste0("ATAC signal at ELOVL2 enhancer"), y = paste0("Expression of ELOVL2"))+
+  scale_color_viridis(direction = -1)
+
+NOVA1_enhancer <- ATACLinkages %>%filter(Peak == "chr14:27063972-27064472")%>%select(-Gene, -Type, -Peak)%>% pivot_longer(cols = everything(), names_to = "ID", values_to = "ATAC")
+NOVA1_gene <- RNA %>%filter(Gene == "NOVA1")%>% dplyr::select(-Gene)%>% pivot_longer(cols = everything(), names_to = "ID", values_to = "RNA")
+MergedSignal <- left_join(NOVA1_enhancer,NOVA1_gene, by = "ID")%>%left_join(EGFR_CN)
+ggplot(MergedSignal, aes(x=ATAC, y = RNA, color = EGFR_CN, group = "none"))+
+  geom_point()+
+  theme_bw(base_size=11)+ theme(plot.title = element_text(face = "bold"))+ 
+  geom_smooth(method='lm')+  
+  stat_cor(method = "pearson", size =3)+
+  labs(x = paste0("ATAC signal at NOVA1 enhancer"), y = paste0("Expression of NOVA1"))+
+  scale_color_viridis(direction = -1)
 
 ##Fig 7E = ATAC modules by distance from centroid
 DistFig<- ATACModuleFigs  %>%filter(ModuleID == "L_mediumorchid" |ModuleID == "A_lavenderblush3" |ModuleID == "L_lightcyan1"|ModuleID == "L_thistle"|ModuleID == "L_orangered3") %>%mutate(ModuleID = factor(ModuleID, levels = c("L_mediumorchid", "A_lavenderblush3", "L_lightcyan1", "L_orangered3", "L_thistle")))
