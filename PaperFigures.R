@@ -170,28 +170,30 @@ ggplot(EGFR_P521, aes(x=CN, y = RNA,  label = Sample, color = Sample, group = "n
   theme_bw()+
   stat_cor(method = "pearson", size =4, label.y.npc = "top")+
   geom_smooth(method='lm', se = F, aes(color = "grey", alpha = 0.5))+ 
-  geom_jitter(aes(shape = LowPurity))+
+  geom_point(aes(shape = LowPurity))+
   scale_shape_manual(values = c("Yes" = 8, "No" = 16))+
   geom_text_repel()+
   scale_color_brewer(palette = "Set1")+
   theme(legend.position = "none")+
   #xlim(0, 25)+ylim(3,10)+
   ylab ("Expression (log2tpm+1)")+
-  ggtitle("EGFR (P521)")
+  ggtitle("EGFR (P521)")+
+  geom_vline(xintercept = 2, color = "red",linetype='dotted')
 
 PDGFRA_P521 <-  GenesOnly_RNA %>% filter(Gene == "PDGFRA" & Patient == "P521") %>% mutate(Sample = as.factor(Sample))
 ggplot(PDGFRA_P521, aes(x=CN, y = RNA,  label = Sample, color = Sample, group = "none"))+
   theme_bw()+
   stat_cor(method = "pearson", size =4)+
   geom_smooth(method='lm', se = F, aes(color = "grey", alpha = 0.5))+ 
-  geom_jitter(aes(shape = LowPurity))+
+  geom_point(aes(shape = LowPurity))+
   scale_shape_manual(values = c("Yes" = 8, "No" = 16))+
   geom_text_repel()+
   scale_color_brewer(palette = "Set1")+
   theme(legend.position = "none")+
   xlim(0, 25)+ylim(3,12)+
   ylab ("Expression (log2tpm+1)")+
-  ggtitle("PDGFRA (P521)")
+  ggtitle("PDGFRA (P521)")+
+  geom_vline(xintercept = 2, color = "red",linetype='dotted')
 
 ##Fig S2D: CDKN2A and PTEN CN versus expression in P530
 
@@ -367,12 +369,11 @@ ggplot(InterpatientModules, aes(x = Patient, y = RNA, fill = Patient))+
   labs(x = "Patient", y = "Average expression")+
   theme(axis.text.x = element_text(angle = 90))
 
-##Fig S4C - Expression versus purity for modules in P475 versus remaining patients
-PurityFigs <- RNAModuleGenesBySample %>%filter(Module == "ivory" |Module == "maroon"|Module == "brown2"|Module == "turquoise") %>%group_by(Patient, Sample, Module, Dist, Purity, RNAsubtype)%>%summarize(RNA = mean(RNA)) %>%mutate(ModuleID = paste0("R_", Module))%>%mutate(ModuleID = factor(ModuleID, levels = c("R_turquoise", "R_brown2", "R_maroon","R_ivory")))%>%mutate(Group = "Other")
+PurityFigs <- RNAModuleGenesBySample %>%filter(Module == "ivory" |Module == "maroon"|Module == "brown2") %>%group_by(Patient, Sample, Module, Dist, Purity, RNAsubtype)%>%summarize(RNA = mean(RNA)) %>%mutate(ModuleID = paste0("R_", Module))%>%mutate(ModuleID = factor(ModuleID, levels = c("R_turquoise", "R_brown2", "R_maroon","R_ivory")))%>%mutate(Group = "Other")
 PurityFigs$Group[PurityFigs$Patient == "P475"] <- "P475"
 ggplot(PurityFigs, aes(x = Purity, y = RNA, color = Patient, group = Group))+
   geom_point()+
-  facet_grid(.~ModuleID, scales = "free")+
+  facet_wrap(.~ModuleID, scales = "free")+
   scale_color_manual(values = PatientColors)+
   theme_bw(base_size = 11)+
   theme(strip.background = element_rect(colour="white", fill="white"))+
@@ -387,10 +388,9 @@ SpecificGene <- "PTPRZ1"
 SpecificGene <- "PTN"
 SpecificGene <- "ETV1"
 SpecificGene <- "NKX2-1"
-RNA_SpecificGene <- RNA %>% filter(Gene == SpecificGene) %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "RNA") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) %>%left_join(SampleInfo)
 
 #Save <- RNA_SpecificGene %>%arrange(Patient, Sample)%>%select(ID, RNA, Purity) %>% write.xlsx("PTPRZ1_expression.xlsx")
-
+RNA_SpecificGene <- RNA %>% filter(Gene == SpecificGene) %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "RNA") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) %>%left_join(SampleInfo)
 P475vRest <-RNA_SpecificGene %>%mutate(Group = "Other")
 P475vRest$Group[P475vRest$Patient == "P475"] <- "P475"
 ggplot(P475vRest, aes(x=Purity, y = RNA, color = Patient, group = Group))+
@@ -619,10 +619,10 @@ ggplot(PurityFig, aes(x = Purity, y = ATAC, color = Patient, group = Group))+
 SpecificGene = "NEUROD1"
 RNA_SpecificGene <- RNA %>% filter(Gene == SpecificGene) %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "RNA") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) 
 ggplot(RNA_SpecificGene, aes(x=Patient, y = RNA, fill = Patient))+
-  geom_boxplot()+
-  geom_point()+
+  geom_boxplot(outlier.shape = NA)+
+  geom_jitter()+
   scale_fill_manual(values =PatientColors)+
-  labs(title = paste0("Gene expression: ", SpecificGene), x = NULL, y = "NEUROD1 gene expression")+
+  labs(x = NULL, y = "NEUROD1 gene expression")+
   theme_bw(base_size = 11)+
   theme(legend.position = "none")+ 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
@@ -661,6 +661,17 @@ ggplot(scATAC_P521, aes(x=UMAP_1, y = UMAP_2, color = Score))+
   theme(strip.background = element_rect(colour="white", fill="white"))+
   theme(strip.text.x = element_text( size = 12, face = "italic"))
 
+#Fig S7E
+scATAC_AP1 <-  scATAC_peaks  %>% pivot_longer(8:ncol(scATAC_peaks), names_to = "Module", values_to = "Score")%>%filter(Module == "A_lavenderblush3"|Module == "L_lightcyan1"|Module == "L_orangered3"|Module == "L_thistle")%>%arrange(Score)
+ggplot(scATAC_AP1, aes(x=UMAP_1, y = UMAP_2, color = Score))+
+  geom_point(size = 1, shape = 16, alpha = 0.8)+
+  facet_grid(Patient~Module, scales = "free")+
+  theme_bw(base_size = 11)+
+  scale_color_viridis_c(option = "inferno", direction = -1)+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(strip.text.x = element_text( size = 12, face = "italic"))
+
+
 ##Fig 6N: scATAC read-in-peak score by EGFR versus PDGFRA amplification in P521
 P521_plot <- P521_amps%>%filter(!is.na(Amp))%>%select(Amp, A_plum3, A_yellowgreen, A_coral) %>%pivot_longer(cols = -Amp, names_to = "Module", values_to = "Score")%>%mutate(Module = factor(Module, levels = c("A_plum3", "A_yellowgreen", "A_coral")))
 ggplot(P521_plot, aes(x = Amp, y = Score, fill = Amp))+
@@ -691,13 +702,14 @@ ggplot(EGFR_salmon4, aes(x = EGFR_CN, y = ATACsignal, color = Patient, group = "
 ##Fig 7B - scATAC-level association of L_salmon module with EGFR amplification (in P521 and P529 with intratumoral heterogeneity)
 EGFR <- scATAC_peaks%>%filter(Patient == "P521"|Patient == "P529") %>% select(Cell, UMAP_1, UMAP_2, Neoplastic, L_salmon4)%>%left_join(scATAC_amps) %>%mutate(egfr = as.logical(egfr))%>%filter(Neoplastic == T)
 ggplot(EGFR, aes(x = egfr, y = L_salmon4, fill = egfr))+
-  geom_boxplot(outlier.shape = NA)+
+  geom_violin(outlier.shape = NA)+
   facet_wrap(Patient ~ .)+  theme_bw(base_size = 11)+
   stat_compare_means(method = "t.test", size = 3, label = "p.format")+
   theme(strip.background = element_rect(colour="white", fill="white"))+
   stat_n_text(size = 3)+
   labs(x= "EGFR amplification", y = "L_salmon4 scATAC score")+
-  scale_fill_brewer(palette = "Set1")
+  scale_fill_brewer(palette = "Set1", direction = -1)+
+  theme(legend.position = "none")
 
 ##FigS7A - ELOVL2 and NOVA1 enhancer ATAC signal verus expression colored by EGFR_CN
 
@@ -710,7 +722,8 @@ ggplot(MergedSignal, aes(x=ATAC, y = RNA, color = EGFR_CN, group = "none"))+
   geom_smooth(method='lm')+  
   stat_cor(method = "pearson", size =3)+
   labs(x = paste0("ATAC signal at ELOVL2 enhancer"), y = paste0("Expression of ELOVL2"))+
-  scale_color_viridis(direction = -1)
+  scale_color_viridis(direction = -1)+
+  theme(legend.direction = "horizontal")
 
 NOVA1_enhancer <- ATACLinkages %>%filter(Peak == "chr14:27063972-27064472")%>%select(-Gene, -Type, -Peak)%>% pivot_longer(cols = everything(), names_to = "ID", values_to = "ATAC")
 NOVA1_gene <- RNA %>%filter(Gene == "NOVA1")%>% dplyr::select(-Gene)%>% pivot_longer(cols = everything(), names_to = "ID", values_to = "RNA")
@@ -820,7 +833,7 @@ scATAC_summary_ID <- scATAC_summary%>%arrange(desc(Score))%>% distinct(Cell, .ke
 scATAC_summary_ID_patient <- scATAC_summary_ID%>%group_by(ID, ModuleID, FigLabel) %>%count()
 scATAC_summary_ID_P529 <- scATAC_summary_ID %>%filter(Patient == "P529")
 ggplot(scATAC_summary_ID, aes(x=UMAP_1, y = UMAP_2, color = FigLabel))+
-  geom_point(size = 1, shape = 16, alpha = 0.5)+
+  geom_point(size = 1, shape = 16, alpha = 0.8)+
   facet_wrap(.~Patient, scales = "free")+
   theme_bw(base_size = 11)+
   theme(strip.background = element_rect(colour="white", fill="white"))+
@@ -865,11 +878,15 @@ scATAC_nonneoplastic <- scATAC_summary_ID
 scATAC_nonneoplastic$FigLabel[scATAC_nonneoplastic$FigLabel != "Oligodendrocyte" &scATAC_nonneoplastic$FigLabel != "Neuron" &scATAC_nonneoplastic$FigLabel != "Microglia"] <-"Other"
 ggplot(scATAC_nonneoplastic, aes(x=UMAP_1, y = UMAP_2, color = FigLabel))+
   geom_point(size = 1, shape = 16)+
-  facet_grid(.~Patient, scales = "free")+
+  facet_wrap(.~Patient, scales = "free", nrow = 1)+
   theme_bw(base_size = 11)+
   theme(strip.background = element_rect(colour="white", fill="white"))+
-  theme(strip.text.x = element_text( size = 12, face = "italic"))+
+  theme(strip.text.x = element_text( size = 12))+
   scale_color_manual(values = c("#ED7B30", "#2E6CCF", "#48A0A3", "grey"))+
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
 
 
