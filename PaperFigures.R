@@ -2,9 +2,9 @@
 
 #initialize
 library(pacman)
-p_load(ggplot2, tidyverse, RColorBrewer, ggpubr, openxlsx, ggrepel, ComplexHeatmap, circlize, janitor, viridis, EnvStats)
+p_load(ggplot2, tidyverse, RColorBrewer, ggpubr, openxlsx, ggrepel, ComplexHeatmap, circlize, janitor, viridis, EnvStats, VennDiagram)
 dataPath <- '~/Dropbox/Postdoc/Papers/ATAC Paper/Supplementary Tables/'
-PatientColors = c('P455' = "#ff7500", 'P475' = "#ae7000", "P498" = "#44cef6","P500" = "#1bd1a5", "P503" = "#FFD92F", "P519" = "#8d4bbb","P521" = "#ff0097", "P524" = "#BEBEBE", "P529" = "#5e5e80", "P530" = "#FF0000")
+PatientColors = c('P455' = "#ff7500", 'P475' = "#ae7000", "P498" = "#44cef6","P500" = "#1bd1a5", "P503" = "#FFD92F", "P519" = "#8d4bbb","P521" = "#ff0097", "P524" = "#BEBEBE", "P529" = "#7b7b96", "P530" = "#FF0000")
 RNAcolors <- c('Classical' = "#3e5063", 'Mesenchymal' = '#0433ff', 'Proneural' = '#ff40ff', 'Neural' = '#ff9300')
 RNAcolors_heatmap <- list(Subtype = c('Classical' = "#3e5063", 'Mesenchymal' = '#0433ff', 'Proneural' = '#ff40ff', 'Neural' = '#ff9300'))
 
@@ -112,8 +112,7 @@ ggplot(pyclone_only, aes(x=MatchingPyClone, y=Distance, fill = MatchingPyClone))
   stat_compare_means(method = "t.test", vjust = 1)
 
 
-
-##Fig S1D/F: PyClone clonal clusters
+##Fig S1C/E: PyClone clonal clusters
 P530_clusters <- PyCloneClusters %>% filter(Patient == "P530")
 ggplot(P530_clusters, aes(x=sample, y=cellular_prevalence, group = Pyclone.cluster))+
   geom_line(aes(color = Pyclone.cluster), lwd=0.7)+
@@ -226,7 +225,7 @@ ggplot(CDKN2A_P530, aes(x=CN, y = RNA,  label = Sample, color = Region, group = 
   ggtitle("CDKN2A (P530)")+
   scale_color_manual(values = c( "deepskyblue4","deeppink4"))
 
-##Fig2G/J: ATAC-Seq signal at MTAP and PTEN promoters
+##Fig2F/I: ATAC-Seq signal at MTAP and PTEN promoters
 ATAC_SpecificPeak <- ATACLinkages %>%filter(Gene == "MTAP" & Type == "Promoter")%>% pivot_longer(cols = 4:ncol(ATACLinkages), names_to = "ID", values_to = "ATAC")%>%left_join(SampleInfo)
 P530_plot <- ATAC_SpecificPeak %>%filter(Patient == "P530")%>%mutate(Sample = as.numeric(Sample), Region = "Frontal")
 P530_plot$Region[P530_plot$Sample<10] <- "Temporal"
@@ -255,7 +254,7 @@ ggplot(P530_plot, aes(x=Region, y = ATAC, fill = Region))+
   labs(title = "PTEN promoter", y = "ATAC signal (log2cpm+1)")+
   theme(title = element_text(size = 12))
 
-##Fig 2H, 2K, S2G: Gene expression comparisons between P530 frontal and temporal regions
+##Fig 2G, 2J, S2G: Gene expression comparisons between P530 frontal and temporal regions
 RNA_SpecificGenes <- RNA %>% filter(Gene == "SHLD2"|Gene == "PTEN"|Gene == "RNLS") %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "RNA") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) %>%mutate(Gene = gsub("SHLD2", "FAM35A", Gene))%>%mutate(Gene = factor(Gene, levels = c("PTEN", "FAM35A", "RNLS")))
 RNA_SpecificGenes <- RNA %>% filter(Gene == "KLHL9"|Gene == "MTAP") %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "RNA") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) %>%mutate(Gene = factor(Gene, levels = c("MTAP", "KLHL9")))
 RNA_SpecificGenes <- RNA %>% filter(Gene == "STAG3"|Gene == "CNPY4") %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "RNA") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample)))
@@ -294,7 +293,7 @@ VerhaakHeatmap <- Heatmap(SampleCols, name = "Avg exp.", show_column_names = F,s
                           row_title_rot = 0, row_names_side = "left", column_split = SampleAnnot$Patient, bottom_annotation = sample_annotation,
                           column_names_gp = gpar(fontsize = 8),row_names_gp = gpar(fontsize = 8), cluster_column_slices = F, 
                           col = rev(brewer.pal(n = 11, name = "RdYlBu")))
-draw(VerhaakHeatmap, merge_legend = T)
+draw(VerhaakHeatmap)
 
 
 ##Fig 4B: Verhaak RNA subtypes by purity and distance
@@ -339,7 +338,7 @@ Heatmap <- Heatmap(SampleCols, name = "Average Expression",  show_row_names = F,
                    column_names_gp = gpar(fontsize = 8),row_names_gp = gpar(fontsize = 8), cluster_rows = T, cluster_column_slices = F, cluster_columns = T, col = rev(brewer.pal(n = 11, name = "RdYlBu")))
 draw(Heatmap, merge_legend = T, heatmap_legend_side = "bottom")
 
-##Fig 4D/E - R_brown (oligodendrocyte) and R_blue (microglia) modules by purity 
+##Fig 4D - R_brown (oligodendrocyte) and R_blue (microglia) modules by purity 
 RNASeq_All_Pivot <- RNA %>%pivot_longer(cols = -Gene, names_to = "ID", values_to = "RNA")
 RNASeq_All_Ordered <- InputFile %>% inner_join(RNASeq_All_Pivot)%>%select(ID, Patient, Sample, Purity, Dist, RNAsubtype, Gene, RNA)
 RNAModuleGenesBySample <- RNAModuleGenes%>% select(Module, Gene) %>% inner_join(RNASeq_All_Ordered)
@@ -354,9 +353,9 @@ ggplot(TurquoiseBrown, aes(x = Purity, y = RNA, color = RNAsubtype, group = "non
   theme(legend.position = "bottom")+
   geom_smooth(method='lm', se = F)+
   stat_cor(method = "pearson", size =3)+
-  labs(x = "Sample purity", y = "Average expression")
+  labs(x = "Sample purity", y = "Average expression")+ theme(panel.spacing = unit(1, "lines"))
 
-##Fig4G - Modules with interpatient heterogeneity between P475 and remaining patients
+##Fig4E - Modules with interpatient heterogeneity between P475 and remaining patients
 InterpatientModules <- RNAModuleGenesBySample %>%filter(Module == "ivory" |Module == "maroon"|Module == "brown2") %>%group_by(Patient, Sample, Module, Dist, Purity, RNAsubtype)%>%summarize(RNA = mean(RNA)) %>%mutate(ModuleID = paste0("R_", Module))%>%mutate(ModuleID = factor(ModuleID, levels = c("R_brown2", "R_maroon","R_ivory")))%>%mutate(Group = "Other")
 ggplot(InterpatientModules, aes(x = Patient, y = RNA, fill = Patient))+
   geom_boxplot()+
@@ -373,23 +372,20 @@ PurityFigs <- RNAModuleGenesBySample %>%filter(Module == "ivory" |Module == "mar
 PurityFigs$Group[PurityFigs$Patient == "P475"] <- "P475"
 ggplot(PurityFigs, aes(x = Purity, y = RNA, color = Patient, group = Group))+
   geom_point()+
-  facet_wrap(.~ModuleID, scales = "free")+
+  facet_grid(ModuleID~., scales = "free")+
   scale_color_manual(values = PatientColors)+
   theme_bw(base_size = 11)+
   theme(strip.background = element_rect(colour="white", fill="white"))+
-  theme(strip.text.x = element_text(face = "italic"))+
-  theme(legend.position = "bottom")+
+  theme(strip.text.y = element_text(face = "italic"))+
   geom_smooth(method='lm', se = F)+
   stat_cor(method = "pearson", size =3, show.legend = F)+
   labs(x = "Sample purity", y = "Average expression")
 
-##Fig 4H/I Expression versus purity for individual genes showing differences between P475 and remaining patients
 SpecificGene <- "PTPRZ1"
 SpecificGene <- "PTN"
 SpecificGene <- "ETV1"
 SpecificGene <- "NKX2-1"
 
-#Save <- RNA_SpecificGene %>%arrange(Patient, Sample)%>%select(ID, RNA, Purity) %>% write.xlsx("PTPRZ1_expression.xlsx")
 RNA_SpecificGene <- RNA %>% filter(Gene == SpecificGene) %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "RNA") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) %>%left_join(SampleInfo)
 P475vRest <-RNA_SpecificGene %>%mutate(Group = "Other")
 P475vRest$Group[P475vRest$Patient == "P475"] <- "P475"
@@ -406,7 +402,7 @@ ggplot(P475vRest, aes(x=Purity, y = RNA, color = Patient, group = Group))+
   scale_color_manual(values = PatientColors)
 
 
-##Fig 5A & Fig 5G- RNA modules by RNA subtype
+##Fig 5A & Fig 5H- RNA modules by subtype
 RNAModuleExpressionBySample <- RNAModuleGenesBySample %>% group_by(Module, ID, Patient, Sample, RNAsubtype) %>% summarize(RNA = mean(RNA))
 Verhaak <- RNAModuleExpressionBySample %>%filter(Module == "orangered3" |Module == "brown"|Module == "plum")%>%mutate(ModuleID = paste0("R_", Module)) ##Fig5A
 Verhaak <- RNAModuleExpressionBySample %>%filter(Module == "plum2" |Module == "midnightblue"|Module == "plum3"|Module == "darkred")%>%mutate(ModuleID = paste0("R_", Module)) %>%mutate(ModuleID = factor(ModuleID, levels = c("R_midnightblue", "R_plum2", "R_plum3", "R_darkred"))) ##Fig 5G
@@ -493,7 +489,7 @@ ggplot(scATAC_geneactivity, aes(x=UMAP_1, y = UMAP_2, color = Neoplastic))+
   theme(legend.position = "none")+
   labs(title = "Neoplastic")
 
-#Fig S5E: Neoplastic and non-neoplastic cell count by sample
+#Fig S5D: Neoplastic and non-neoplastic cell count by sample
 ggplot(scATAC_geneactivity, aes(x=Sample, fill = Neoplastic))+
   geom_bar(colour = "black")+
   theme_bw(base_size = 11)+
@@ -504,7 +500,7 @@ ggplot(scATAC_geneactivity, aes(x=Sample, fill = Neoplastic))+
   scale_fill_manual(values = c("azure4", "deeppink3"))+
   ylab("Number of cells")
 
-#Fig S5F: Neoplastic % in scATAC versus purity from bulk WES
+#Fig S5E: Neoplastic % in scATAC versus purity from bulk WES
 neoplastic_percent <- scATAC_geneactivity %>%group_by(ID) %>% summarize(Neoplastic = mean(Neoplastic))%>%left_join(SampleInfo)
 ggplot(neoplastic_percent, aes(x=Neoplastic, y = Purity, group = "none", label = Sample))+
   geom_smooth(method='lm', se = F)+
@@ -543,6 +539,20 @@ ggplot(scATAC_gene_select, aes(x= Neoplastic, y = Score, color = Neoplastic))+
   theme(strip.text.y = element_text( size = 12, face = "italic"))+
   theme(legend.position = "none")+
   stat_compare_means(method = "t.test", label = "p.format", vjust = 1)
+
+#Fig S5F-H - scATAC neoplastic versus non-neoplastic
+scATAC_gene_select <- scATAC_geneactivity_longer %>%filter(ModuleID == "R_darkred")%>%arrange(Score)
+ggplot(scATAC_gene_select, aes(x= Neoplastic, y = Score, color = Neoplastic))+
+  geom_jitter()+
+  geom_violin(color = "black", fill = NA)+
+  theme_bw(base_size = 11)+
+  scale_color_manual(values = c("azure4", "deeppink3"))+
+  facet_grid(ModuleID~., scales = "free")+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(strip.text.y = element_text( size = 12, face = "italic"))+
+  theme(legend.position = "none")+
+  stat_compare_means(method = "t.test", label = "p.format", vjust = 1)
+
 
 ##Fig 5I - Correlation matrices for microenvironmental RNA modules 
 Microenvironment <- ModuleAnnot %>% filter(`RNA module (R_)` == "blue" | `RNA module (R_)` == "midnightblue" | `RNA module (R_)` == "greenyellow"| `RNA module (R_)` == "midnightblue"| `RNA module (R_)` == "plum2"| `RNA module (R_)` == "plum3"| `RNA module (R_)` == "darkred"| `RNA module (R_)` == "brown"| `RNA module (R_)` == "plum"| `RNA module (R_)` == "orangered3")
@@ -661,16 +671,6 @@ ggplot(scATAC_P521, aes(x=UMAP_1, y = UMAP_2, color = Score))+
   theme(strip.background = element_rect(colour="white", fill="white"))+
   theme(strip.text.x = element_text( size = 12, face = "italic"))
 
-#Fig S7E
-scATAC_AP1 <-  scATAC_peaks  %>% pivot_longer(8:ncol(scATAC_peaks), names_to = "Module", values_to = "Score")%>%filter(Module == "A_lavenderblush3"|Module == "L_lightcyan1"|Module == "L_orangered3"|Module == "L_thistle")%>%arrange(Score)
-ggplot(scATAC_AP1, aes(x=UMAP_1, y = UMAP_2, color = Score))+
-  geom_point(size = 1, shape = 16, alpha = 0.8)+
-  facet_grid(Patient~Module, scales = "free")+
-  theme_bw(base_size = 11)+
-  scale_color_viridis_c(option = "inferno", direction = -1)+
-  theme(strip.background = element_rect(colour="white", fill="white"))+
-  theme(strip.text.x = element_text( size = 12, face = "italic"))
-
 
 ##Fig 6N: scATAC read-in-peak score by EGFR versus PDGFRA amplification in P521
 P521_plot <- P521_amps%>%filter(!is.na(Amp))%>%select(Amp, A_plum3, A_yellowgreen, A_coral) %>%pivot_longer(cols = -Amp, names_to = "Module", values_to = "Score")%>%mutate(Module = factor(Module, levels = c("A_plum3", "A_yellowgreen", "A_coral")))
@@ -750,6 +750,17 @@ ggplot(DistFig , aes(x = Dist, y = ATACsignal, color = RNAsubtype, group = "none
   stat_cor(method = "pearson", size =3, show.legend =F)+
   labs(x = "Distance from centroid", y = "Average ATAC signal")
 
+#Fig S7E - scATAC enrichment of AP1 modules
+scATAC_AP1 <-  scATAC_peaks  %>% pivot_longer(8:ncol(scATAC_peaks), names_to = "Module", values_to = "Score")%>%filter(Module == "A_lavenderblush3"|Module == "L_lightcyan1"|Module == "L_orangered3"|Module == "L_thistle")%>%arrange(Score)
+ggplot(scATAC_AP1, aes(x=UMAP_1, y = UMAP_2, color = Score))+
+  geom_point(size = 1, shape = 16, alpha = 0.8)+
+  facet_grid(Patient~Module, scales = "free")+
+  theme_bw(base_size = 11)+
+  scale_color_viridis_c(option = "inferno", direction = -1)+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(strip.text.x = element_text( size = 12, face = "italic"))
+
+
 ##Fig7F -- Individual peaks and genes correlation with purity and distance
 
 PeakCorrelations_fig_AP1 <- PeakCorrelations %>% filter(ATACModule == "lavenderblush3"|LinkageModule == "lightcyan1"|LinkageModule == "orangered3"|LinkageModule == "thistle")%>%distinct(Peak, PurityR, DistR)%>%mutate(FigLabel = "AP1/Mesenchymal")
@@ -811,27 +822,11 @@ ggplot(GeneCorrelations, aes(x=Gene_PurityR, y = Gene_DistR, color = FigLabel, g
   scale_color_manual(values = Colors, breaks=c("Oligodendrocyte", "Astrocyte", "Neuron", "Microglia", "Neurodevelopmental", "EGFR amplification", "Neuronal hijacking", "AP1/Mesenchymal", "Interferon response"))+
   xlim(-1,1)+ylim(-0.6,0.6)
 
-
-
-
-# graphical abstract
-ggplot(PeakCorrelations_fig, aes(x=PurityR, y = DistR, color = FigLabel,  group = "none"))+
-  geom_point(aes(alpha = 0.8))+
-  labs(x= "Purity R", y= "Distance R")+
-  theme_bw(base_size = 11)+
-  theme(plot.title = element_text(lineheight=.8, face="bold",hjust = 0.5))+ 
-  #geom_smooth(method='lm', se = FALSE)+
-  #stat_cor(method = "pearson", size =3, show.legend = F)+
-  #geom_label_repel(data = Correlations_summary, aes(PurityR, DistR, label = FigLabel), size = 3, fontface = "italic", show.legend = F)+
-  scale_color_manual(values = Colors, breaks=c("Oligodendrocyte", "Astrocyte", "Neuron", "Microglia", "Neurodevelopmental", "EGFR amplification", "Neuronal hijacking", "AP1/Mesenchymal", "Interferon response"))+
-  xlim(-1,1)+ylim(-0.6,0.6)
-
 ##Fig 7G: scATAC figure annotated
 Correlations_summary_select <- Correlations_summary %>% select(FigLabel, ModuleID)%>%filter(ModuleID != "A_plum3"& ModuleID != "A_plum"& ModuleID != "A_darkseagreen3"& ModuleID != "A_thistle"& ModuleID != "A_yellowgreen")
 scATAC_summary <- scATAC_peaks %>% pivot_longer(8:ncol(scATAC_peaks), names_to = "ModuleID", values_to = "Score")%>%left_join(Correlations_summary_select)%>%filter(!is.na(FigLabel))
 scATAC_summary_ID <- scATAC_summary%>%arrange(desc(Score))%>% distinct(Cell, .keep_all = T)%>%arrange(Score)
 scATAC_summary_ID_patient <- scATAC_summary_ID%>%group_by(ID, ModuleID, FigLabel) %>%count()
-scATAC_summary_ID_P529 <- scATAC_summary_ID %>%filter(Patient == "P529")
 ggplot(scATAC_summary_ID, aes(x=UMAP_1, y = UMAP_2, color = FigLabel))+
   geom_point(size = 1, shape = 16, alpha = 0.8)+
   facet_wrap(.~Patient, scales = "free")+
@@ -842,36 +837,6 @@ ggplot(scATAC_summary_ID, aes(x=UMAP_1, y = UMAP_2, color = FigLabel))+
         axis.ticks.x=element_blank(),
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank())
-
-##Fig 7G: scATAC figure graphical abstract
-scATAC_P529 <- scATAC_geneactivity %>%filter(Patient == "P529")%>%mutate(Clone = "Red")
-scATAC_P529$Clone[scATAC_P529$Sample == "10"] <- "Blue"
-ggplot(scATAC_P529, aes(x=UMAP_1, y = UMAP_2, color = Clone))+
-  geom_point(size = 1, shape = 16, alpha = 0.7)+
-  theme_bw(base_size = 11)+
-  scale_color_manual(values = c("#91B2BE", "#ECA29E"))+
-  theme(strip.background = element_rect(colour="white", fill="white"))+
-  theme(strip.text.y = element_text( size = 12))+
-  theme(legend.position = "none")
-
-#RNA Module / Signature overlap
-AllSignatures <- Signatures%>%pivot_longer(cols = everything(), names_to = "Signature", values_to = "Gene")%>% na.omit()
-AllSignatures_RNAModule <- AllSignatures %>%left_join(RNAModuleGenes)
-Red_choroid <- AllSignatures_RNAModule %>%filter(Module == "red")%>%filter(str_detect(Signature, "Choroid"))
-
-
-##
-RNA_TADgenes <- RNA %>% filter(Gene =="HAUS6"|Gene == "PLIN2"|Gene == "PLIN2"|Gene =="DENND4C")%>%pivot_longer(cols = -Gene, names_to = "ID", values_to = "RNA")%>%left_join(SampleInfo)
-ggplot(RNA_TADgenes, aes(x=Sample, y = RNA, fill = Patient))+
-  geom_bar(stat = "identity", color = "black")+
-  scale_fill_manual(values =PatientColors)+
-  facet_grid(Gene~Patient, scales = "free", space = "free")+
-  theme_bw(base_size = 11)+
-  theme(strip.background = element_rect(colour="white", fill="white"))+
-  theme(strip.text.y = element_text( size = 12, angle = 0))+
-  theme(legend.position = "none")+ 
-  theme(plot.title = element_text(lineheight=.8, face="bold",hjust = 0.5))+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 ## Fig 6E: scATAC non_neoplastic
 scATAC_nonneoplastic <- scATAC_summary_ID
@@ -889,4 +854,74 @@ ggplot(scATAC_nonneoplastic, aes(x=UMAP_1, y = UMAP_2, color = FigLabel))+
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank())
 
+# spatial figure for graphical abstract
+ggplot(PeakCorrelations_fig, aes(x=PurityR, y = DistR, color = FigLabel,  group = "none"))+
+  geom_point(aes(alpha = 0.8))+
+  labs(x= "Purity", y= "Distance")+
+  theme_bw(base_size = 11)+
+  theme(plot.title = element_text(lineheight=.8, face="bold",hjust = 0.5))+ 
+  #geom_smooth(method='lm', se = FALSE)+
+  #stat_cor(method = "pearson", size =3, show.legend = F)+
+  #geom_label_repel(data = Correlations_summary, aes(PurityR, DistR, label = FigLabel), size = 3, fontface = "italic", show.legend = F)+
+  scale_color_manual(values = Colors, breaks=c("Oligodendrocyte", "Astrocyte", "Neuron", "Microglia", "Neurodevelopmental", "EGFR amplification", "Neuronal hijacking", "AP1/Mesenchymal", "Interferon response"))+
+  xlim(-1,1)+ylim(-0.6,0.6)+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+
+## scATAC figures for graphical abstract
+scATAC_P529 <- scATAC_geneactivity %>%filter(Patient == "P529")%>%mutate(Clone = "Red")
+scATAC_P529$Clone[scATAC_P529$Sample == "10"] <- "Blue"
+ggplot(scATAC_P529, aes(x=UMAP_1, y = UMAP_2, color = Clone))+
+  geom_point(size = 1, shape = 16, alpha = 0.7)+
+  theme_bw(base_size = 11)+
+  scale_color_manual(values = c("#91B2BE", "#ECA29E"))+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  theme(strip.text.y = element_text( size = 12))+
+  theme(legend.position = "none")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+scATAC_summary_ID_P529 <- scATAC_summary_ID %>%filter(Patient == "P529")
+ggplot(scATAC_summary_ID_P529, aes(x=UMAP_1, y = UMAP_2, color = FigLabel))+
+  geom_point(size = 1, shape = 16, alpha = 0.8)+
+  facet_wrap(.~Patient, scales = "free")+
+  theme_bw(base_size = 11)+
+  theme(strip.background = element_rect(colour="white", fill="white"))+
+  scale_color_manual(values = Colors)+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+
+
+#RNA Module / Signature overlap
+AllSignatures <- Signatures%>%pivot_longer(cols = everything(), names_to = "Signature", values_to = "Gene")%>% na.omit()
+AllSignatures_RNAModule <- AllSignatures %>%left_join(RNAModuleGenes)
+Red_choroid <- AllSignatures_RNAModule %>%filter(Module == "red")%>%filter(str_detect(Signature, "Choroid"))
+turquoise_ipc <- AllSignatures_RNAModule %>%filter(Module == "turquoise")%>%filter(str_detect(Signature, "IPC.div2"))
+
+
+##venn diagrams
+Signatures <- Signatures %>%pivot_longer(cols = everything(), names_to = "Signature", values_to = "Gene") %>% separate(Signature, into = c("Data", "Journal", "Year", "Label"), extra = "merge") 
+
+Turquoise <- RNAModuleGenes %>% filter(Module == "turquoise")%>%select(Gene) %>% distinct()
+IPCdiv2 <- Signatures %>% filter(Label == "IPC-div2_upreg")%>%select(Gene)%>%filter(!is.na(Gene)) %>% distinct()
+venn.diagram(x=list(Turquoise$Gene, IPCdiv2$Gene), category.names = c("R_turquoise", "IPC-div2"), filename = 'turquoise_IPC_venn.png', 
+             output = T, fontfamily ="Helvetica", fill = c("turquoise", "grey"), cat.pos = 180, cat.fontface = "italic", cat.fontfamily = "Helvetica", height = 1200, width = 1200, disable.logging = TRUE)
+
+Brown <- RNAModuleGenes %>% filter(Module == "brown")%>%select(Gene) %>% distinct()
+Oligodendrocyte <- Signatures %>% filter(Label == "OL_myel")%>%select(Gene)%>%filter(!is.na(Gene)) %>% distinct()
+venn.diagram(x=list(Brown$Gene, Oligodendrocyte$Gene), category.names = c("R_brown", "Oligodendrocyte"), filename = 'brown_oligo_venn.png', 
+             output = T,fontfamily ="Helvetica", fill = c("brown", "orange2"), cat.pos = 180, cat.fontface = "italic", cat.fontfamily = "Helvetica", height = 1100, width = 1100, disable.logging = TRUE)
+
+Midnightblue <- RNAModuleGenes %>% filter(Module == "midnightblue")%>%select(Gene) %>% distinct()
+Mesenchymal <- Signatures %>% filter(Label == "Mesenchymal")%>%select(Gene)%>%filter(!is.na(Gene)) %>% distinct()
+venn.diagram(x=list(Midnightblue$Gene, Mesenchymal$Gene), category.names = c("", ""), filename = 'Midnightblue_mesenchymal_venn_labeled.png', 
+             output = T, fontfamily ="Helvetica", fill = c("darkblue", "blue"),  cat.cex = 0.5, cat.fontface = "italic", cat.fontfamily = "Helvetica", height = 1100, width = 1100, disable.logging = TRUE)
 
