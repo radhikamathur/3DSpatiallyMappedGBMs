@@ -33,11 +33,6 @@ PatientColors = c('P455' = "#ff7500", 'P475' = "#ae7000", "P498" = "#44cef6","P5
 RNAcolors <- c('Classical' = "#3e5063", 'Mesenchymal' = '#0433ff', 'Proneural' = '#ff40ff', 'Neural' = '#ff9300')
 RNAcolors_heatmap <- list(Subtype = c('Classical' = "#3e5063", 'Mesenchymal' = '#0433ff', 'Proneural' = '#ff40ff', 'Neural' = '#ff9300'))
 
-## distance summary statistics
-Summary <- InputFile %>% filter(!is.na(Centroid)) %>% group_by(Patient) %>% summarize(DistPeripheryMean = mean(Periph), DistPeripheryMax = max(Periph), DistPeripheryMin = min(Periph), DistCentroidMean = mean(Centroid), DistCentroidMax = max(Centroid), DistCentroidMin = min(Centroid))
-Summary_intersample <- pairwiseMatrix1%>% filter(!is.na(Distance)) %>% group_by(Patient) %>% summarize(Intersample_mean = mean(Distance), Intersample_max = max(Distance), Intersample_min = min(Distance))
-Summary_join <- Summary %>%left_join(Summary_intersample)
-
 ##Fig 1A - Count the number of samples with each data type and generate summary plot
 DataTypes_RNA <- InputFile %>% filter(`RNA-Seq` == "Yes")%>%group_by(Patient) %>% count(name = "RNA-Seq")
 DataTypes_Exome <- InputFile %>% filter(`Exome-Seq` == "Yes")%>%group_by(Patient) %>% count(name = "Exome-Seq")
@@ -48,7 +43,7 @@ DataTypes_snATAC <- InputFile %>% filter(`snATAC` == "Yes")%>%group_by(Patient) 
 DataTypes <- reduce(list(DataTypes_RNA, DataTypes_Exome, DataTypes_ATAC, DataTypes_HiC, DataTypes_snATAC), dplyr::left_join, by = 'Patient')%>%mutate(Patient = factor(Patient))
 DataTypes$`Hi-C`[DataTypes$Patient == "P455"|DataTypes$Patient == "P475"|DataTypes$Patient == "P498"|DataTypes$Patient == "P503"|DataTypes$Patient == "P519"|DataTypes$Patient == "P521"] <- 1
 
-DataTypes_long <- DataTypes %>%pivot_longer(cols = -Patient, names_to = "Data", values_to = "Samples")%>%mutate(Patient = factor(Patient, levels = rev(levels(DataTypes$Patient))), `Data Type` = factor(Data, levels = c("Exome-Seq", 'RNA-Seq', 'ATAC-Seq','snATAC','Hi-C')))
+DataTypes_long <- DataTypes %>%pivot_longer(cols = -Patient, names_to = "Data", values_to = "Samples")%>%mutate(Patient = factor(Patient, levels = rev(levels(DataTypes$Patient))), `Data Type` = factor(Data, levels = c("Exome-Seq", 'RNA-Seq', 'ATAC-Seq','snATAC','Hi-C'))) %>%filter(Patient != "P565")
 DataTypes_n <- DataTypes_long %>%filter(!is.na(Samples)) %>%group_by(`Data Type`)%>%summarize(Total = sum(Samples))
 ggplot()+
   theme_bw(base_size = 12)+
@@ -59,7 +54,7 @@ ggplot()+
   scale_color_manual(values = c("#977DC3", "#70AD47", "#ED7D31", "#009FEA", "#FFC001"))+
   geom_text(data = DataTypes_n, aes(x = `Data Type`, y = 0, vjust = 1.5, label = Total))+
   coord_cartesian(clip = "off")+
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ## Fig 1B: Plot purity versus CEL (after filtering out samples on the border)
 CEL <-InputFile %>% filter(!is.na(CEL))%>% filter(CEL != "Border")
@@ -71,7 +66,10 @@ ggplot(CEL, aes(x = CEL, y = Purity, color=Patient, group = CEL))+
   theme(plot.title = element_text(lineheight=.8, face="bold",hjust = 0.5))+
   scale_color_manual(values = PatientColors)+
   stat_compare_means(method = "t.test", show.legend = F)+
-  ylim(-0.05,1.05)
+  ylim(-0.05,1.05)+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+CEL_count <- CEL %>%group_by(CEL) %>% count()
 
 ##Fig 1C: plot purity versus relative distance from centroid 
 ggplot(InputFile, aes(Dist, Purity, color=Patient, group = "none"))+
@@ -82,7 +80,8 @@ ggplot(InputFile, aes(Dist, Purity, color=Patient, group = "none"))+
   geom_smooth(method='lm', se = FALSE)+
   stat_cor(method = "pearson", size =3, show.legend = F)+
   scale_color_manual(values = PatientColors)+
-  xlim(0,1.06)+ylim(0,1)
+  xlim(0,1.06)+ylim(0,1)+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ##Fig1H: Generate pairwise inter-sample distance matrix and plot for genetic subclones from P529 and P530
 
@@ -125,7 +124,8 @@ ggplot(pyclone_only, aes(x=MatchingPyClone, y=Distance, fill = MatchingPyClone))
   theme(strip.text.y = element_text( size = 12))+
   theme(legend.position = "none")+
   theme(axis.text.x = element_text(angle = 90))+
-  stat_compare_means(method = "t.test", vjust = 1)
+  stat_compare_means(method = "t.test", vjust = 1)+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 avg_distance <- pyclone_only %>% group_by(Patient, MatchingPyClone) %>% summarize(Distance = mean(Distance))
 
@@ -183,7 +183,8 @@ pairwiseMatrix1 %>% ggplot(aes(x=Distance, y = abs(PurityDifference), color = Pa
   stat_cor(method = "pearson", size =3, label.x.npc = "center")+
   scale_color_manual(values = PatientColors)+
   theme_bw(base_size = 11)+
-  xlab(bquote(Inter-sample~distance~ (d[ab])))+ylab(bquote(Purity~difference~(abs(ψ[b] - ψ[a]))))
+  xlab(bquote(Inter-sample~distance~ (d[ab])))+ylab(bquote(Purity~difference~(abs(ψ[b] - ψ[a]))))+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 
 
@@ -208,7 +209,8 @@ ggplot(AmplificationsOnly, aes(x=Patient, y = CN,  fill = Patient))+
   theme(legend.position = "none")+
   labs(y = "Copy Number (CN)")+
   geom_hline(yintercept = 2, color = "red",linetype='dotted')+
-  scale_shape_manual(values = c("Yes" = 8, "No" = 16))
+  scale_shape_manual(values = c("Yes" = 8, "No" = 16))+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ##Fig2H/K: ATAC-Seq signal and gene expression comparisons between P530 frontal and temporal regions
 ATAC_SpecificPeak <- ATACLinkages %>%filter(Gene == "MTAP" & Type == "Promoter")%>% pivot_longer(cols = 4:ncol(ATACLinkages), names_to = "ID", values_to = "ATAC")%>%left_join(SampleInfo)
@@ -223,7 +225,8 @@ ggplot(P530_plot, aes(x=Region, y = ATAC, fill = Region))+
   theme(plot.title = element_text(lineheight=.8, hjust = 0.5))+
   stat_compare_means(method = "t.test", vjust = -0.5, label = "p.format")+
   labs(title = "MTAP promoter", y = "ATAC signal")+
-  theme(title = element_text(size = 12),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+  theme(title = element_text(size = 12),axis.text.x=element_blank(),axis.ticks.x=element_blank())+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ATAC_SpecificPeak <- ATACLinkages %>%filter(Gene == "PTEN" & Type == "Promoter")%>% pivot_longer(cols = 4:ncol(ATACLinkages), names_to = "ID", values_to = "ATAC")%>%left_join(SampleInfo)
 P530_plot <- ATAC_SpecificPeak %>%filter(Patient == "P530")%>%mutate(Sample = as.numeric(Sample), Region = "Frontal")
@@ -237,7 +240,8 @@ ggplot(P530_plot, aes(x=Region, y = ATAC, fill = Region))+
   theme(plot.title = element_text(lineheight=.8, hjust = 0.5))+
   stat_compare_means(method = "t.test", vjust = -0.5, label = "p.format")+
   labs(title = "PTEN promoter", y = "ATAC signal")+
-  theme(title = element_text(size = 12),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+  theme(title = element_text(size = 12),axis.text.x=element_blank(),axis.ticks.x=element_blank())+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 RNA_SpecificGenes <- RNA %>% filter(Gene == "SHLD2"|Gene == "PTEN"|Gene == "RNLS") %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "RNA") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) %>%mutate(Gene = gsub("SHLD2", "FAM35A", Gene))%>%mutate(Gene = factor(Gene, levels = c("PTEN", "FAM35A", "RNLS")))
 RNA_SpecificGenes <- RNA %>% filter(Gene == "KLHL9"|Gene == "MTAP") %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "RNA") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) %>%mutate(Gene = factor(Gene, levels = c("MTAP", "KLHL9")))
@@ -254,7 +258,8 @@ ggplot(P530_plot, aes(x=Region, y = RNA, fill = Region))+
   stat_compare_means(method = "t.test", vjust = -0.5,  label = "p.format")+
   theme(strip.text = element_text(size = 12),axis.text.x=element_blank(),axis.ticks.x=element_blank())+
   theme(strip.background = element_rect(colour="white", fill="white"))+
-  labs(y = "Gene expression", x = NULL)
+  labs(y = "Gene expression", x = NULL)+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ##Fig S2C: EGFR and PDGFRA copy-number versus gene expression
 GenesOnly <- FACETSResults %>% filter(!is.na(Gene))%>% group_by(ID, Gene)%>%summarize(CN = mean(tcn.em))%>%left_join(InputFile)
@@ -354,7 +359,8 @@ ggplot(SubtypePlot, aes(x = RNAsubtype, y = Purity, fill = RNAsubtype))+
   xlab(NULL)+ylab("Purity (ψ)" )+
   theme(legend.position = "none")+
   scale_fill_manual(values = RNAcolors)+
-  stat_compare_means(method = "anova", size = 3, label.x = 1.5)
+  stat_compare_means(method = "anova", size = 3, label.x = 1.5)+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ggplot(SubtypePlot, aes(x = RNAsubtype, y = Dist, fill = RNAsubtype))+
   geom_boxplot()+
@@ -363,7 +369,8 @@ ggplot(SubtypePlot, aes(x = RNAsubtype, y = Dist, fill = RNAsubtype))+
   xlab(NULL)+ylab("Relative distance (d)")+
   theme(legend.position = "none")+
   scale_fill_manual(values = RNAcolors)+
-  stat_compare_means(method = "anova", size = 3, label.y = 0.25, label.x = 1.5)
+  stat_compare_means(method = "anova", size = 3, label.y = 0.25, label.x = 1.5)+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ##Fig4C: RNA module heatmap
 ModuleAnnot <- RNAModules 
@@ -420,7 +427,8 @@ ggplot(Verhaak, aes(x = ModuleID, y = RNA, color = RNAsubtype))+
   scale_color_manual(values = RNAcolors)+
   theme(axis.text.y = element_text(face = "italic"))+
   xlab(NULL)+ylab("Average expression")+coord_flip()+
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom")+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 #Fig 4E/S4C - RNA modules enriched towards the periphery 
 Periph <- RNAModuleGenesBySample  %>%filter(Module == "lightcoral") %>%group_by(Patient, Sample, Module, Dist, RNAsubtype) %>%summarize(RNA = mean(RNA))%>%mutate(ModuleID = paste0("R_", Module))
@@ -436,7 +444,8 @@ ggplot(Periph , aes(x = Dist, y = RNA, color = RNAsubtype, group = "none"))+
   theme(legend.position = "bottom")+ theme(legend.title = element_blank())+
   geom_smooth(method='lm', se = F)+
   stat_cor(method = "pearson", size =3)+
-  labs(x = "Distance from centroid", y = "Average expression")
+  labs(x = "Relative distance (d)", y = "Average expression")+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ##Fig 4I - Association of R_darkred with CE regions
 
@@ -450,7 +459,8 @@ ggplot(Darkred, aes(x = CEL, y = RNA, color = RNAsubtype, group = CEL))+
   labs(title = "R_darkred", x = "Contrast-enhancing",y = "Average expression" )+
   theme(plot.title = element_text(face = "italic", hjust = 0.4, size = 11))+
   theme(legend.position = "none")+
-  stat_compare_means(method = "t.test", label = "p.format", label.y = 5)+ ylim(2,5.2)
+  stat_compare_means(method = "t.test", label = "p.format", label.y = 5)+ ylim(2,5.2)+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ##Fig S4B - Neural samples by RNA module
 
@@ -489,7 +499,8 @@ ggplot(PurityFigs, aes(x = Purity, y = RNA, color = Patient, group = "none"))+
   geom_smooth(method='lm', se = F)+
   stat_cor(method = "pearson", size =4, show.legend = F)+
   labs(x = "Sample purity", y = "Average expression", title = "R_turquoise")+
-  theme(plot.title = element_text(lineheight=.8, face="italic",hjust = 0.5))
+  theme(plot.title = element_text(lineheight=.8, face="italic",hjust = 0.5))+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 
 ##Fig 5C - Differential module enrichment in GBMs with primitive neuronal component (plotting against purity)
@@ -504,7 +515,8 @@ ggplot(PurityFigs, aes(x = Purity, y = RNA, color = Patient, group = Group))+
   theme(strip.text.x = element_text(face = "italic"))+
   geom_smooth(method='lm', se = F)+
   stat_cor(method = "pearson", size =3, show.legend = F)+
-  labs(x = "Sample purity", y = "Average expression")
+  labs(x = "Sample purity", y = "Average expression")+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ##FigS5C - Differential module enrichment in GBMs with primitive neuronal component (with P565)
 InterpatientModules <- RNAModuleGenesBySample %>%filter(Module == "ivory" |Module == "maroon"|Module == "brown2") %>%group_by(Patient, Sample, Module, Dist, Purity, RNAsubtype)%>%summarize(RNA = mean(RNA)) %>%mutate(ModuleID = paste0("R_", Module))%>%mutate(ModuleID = factor(ModuleID, levels = c("R_ivory", "R_turquoise", "R_brown2", "R_maroon")))%>%mutate(Group = "Other")%>%mutate(Patient = replace_na(Patient, "P565"))
@@ -517,48 +529,53 @@ ggplot(InterpatientModules, aes(x = Patient, y = RNA, fill = Patient))+
   theme(strip.text.x = element_text(face = "italic"))+
   theme(legend.position = "none")+
   labs(x = "Patient", y = "Average expression")+
-  theme(axis.text.x = element_text(angle = 90))
+  theme(axis.text.x = element_text(angle = 90))+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 
 ##Fig 6A - scATAC cell distributions by sample and neoplastic status
 cell_annotations_count <- scATAC_geneactivity %>% group_by(Patient, Sample) %>% summarize(Count = n())
 ggplot(cell_annotations_count, aes(x=Patient, y = Count, fill = Sample))+
   geom_col(colour = "black")+
-  geom_text(aes(label = Sample),position = "stack", vjust = 1.5, size = 3.5)+
-  theme_bw(base_size = 10)+
+  geom_text(aes(label = Sample),position = "stack", vjust = 1.3, size = 3.5)+
+  theme_bw(base_size = 12)+
   scale_fill_brewer(palette = "Set1", direction = -1)+
   theme(strip.background = element_rect(colour="white", fill="white"))+
   theme(legend.position = "none")+
-  ylab("Number of cells")
+  ylab("Number of cells")+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ggplot(scATAC_geneactivity, aes(x=UMAP_1, y = UMAP_2, color = Sample))+
   geom_point(size = 1, shape = 16, alpha = 0.7)+
-  facet_grid(.~Patient, scales = "free")+
+  facet_wrap(.~Patient, scales = "free", nrow = 1)+
   theme_bw(base_size = 11)+
   scale_color_brewer(palette = "Set1", direction = -1)+
   theme(strip.background = element_rect(colour="white", fill="white"))+
   theme(strip.text.y = element_text( size = 12))+
   theme(legend.position = "none")+
-  labs(title = "Samples")
+  labs(title = "Samples")+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ggplot(scATAC_geneactivity, aes(x=Patient, fill = Neoplastic))+
   geom_bar(colour = "black")+
-  theme_bw(base_size = 11)+
+  theme_bw(base_size = 12)+
   #scale_fill_brewer(palette = "Set1", direction = -1)+
   theme(strip.background = element_rect(colour="white", fill="white"))+
   theme(legend.position = "bottom")+
   scale_fill_manual(values = c("azure4", "deeppink3"))+
-  ylab("Number of cells")
+  ylab("Number of cells")+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ggplot(scATAC_geneactivity, aes(x=UMAP_1, y = UMAP_2, color = Neoplastic))+
   geom_point(size = 1, shape = 16, alpha = 0.7)+
-  facet_grid(~Patient, scales = "free")+
+  facet_wrap(~Patient, scales = "free", nrow =1)+
   theme_bw(base_size = 11)+
   theme(strip.background = element_rect(colour="white", fill="white"))+
   theme(strip.text.y = element_text( size = 12))+
   scale_color_manual(values = c("azure4", "deeppink3"))+
   theme(legend.position = "none")+
-  labs(title = "Neoplastic")
+  labs(title = "Neoplastic")+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 #Fig S6A: Neoplastic % in scATAC versus purity from bulk WES
 neoplastic_percent <- scATAC_geneactivity %>%group_by(ID) %>% summarize(Neoplastic = mean(Neoplastic))%>%left_join(SampleInfo)
@@ -681,7 +698,8 @@ ggplot(PurityFig, aes(x = Purity, y = ATAC, color = Patient, group = Group))+
   theme(legend.position = "right", plot.title = element_text(face = "italic"))+
   geom_smooth(method='lm', se = F)+
   stat_cor(method = "pearson", size =3, show.legend = F)+
-  labs(title = "L_navajowhite", x = "Sample purity", y = "Average ATAC signal")
+  labs(title = "L_navajowhite", x = "Sample purity", y = "Average ATAC signal")+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 
 ##Fig5J - NEUROD1 gene expression by patient
@@ -694,7 +712,8 @@ ggplot(RNA_SpecificGene, aes(x=Patient, y = RNA, fill = Patient))+
   labs(x = NULL, y = paste0(SpecificGene, " gene expression"))+
   theme_bw(base_size = 11)+
   theme(legend.position = "none")+ 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ##FigS6G - SOX9 versus SOX10 gene expression in P521
 SOX9 <- RNA %>% filter(Gene == "SOX9") %>% pivot_longer(cols = !Gene, names_to = "Sample", values_to = "SOX9") %>% separate(Sample, c("Patient", "Sample")) %>% mutate(Sample = as.factor(as.numeric(Sample))) %>%select(-Gene)
@@ -718,7 +737,12 @@ ggplot(P521_amps, aes(x=UMAP_1, y = UMAP_2, color = Amp))+
   theme_bw(base_size = 11)+
   theme(strip.background = element_rect(colour="white", fill="white"))+
   theme(strip.text.y = element_text( size = 12))+
-  scale_color_manual(values = c("EGFR" = "#BBAED1", "PDGFRA" = "#90C786"))
+  scale_color_manual(values = c("EGFR" = "#BBAED1", "PDGFRA" = "#90C786"))+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
 
 ## scATAC read-in-peak UMAPs for modules with intratumoral heterogeneity in P521
 scATAC_P521 <-  scATAC_peaks %>%filter(Patient == "P521") %>% pivot_longer(8:ncol(scATAC_peaks), names_to = "Module", values_to = "Score")%>%filter(Module == "A_plum3"|Module == "A_yellowgreen")%>%arrange(Score)
@@ -728,7 +752,10 @@ ggplot(scATAC_P521, aes(x=UMAP_1, y = UMAP_2, color = Score))+
   theme_bw(base_size = 11)+
   scale_color_viridis_c(option = "inferno", direction = -1)+
   theme(strip.background = element_rect(colour="white", fill="white"))+
-  theme(strip.text.x = element_text( size = 12, face = "italic"))
+  theme(strip.text.x = element_text( size = 12, face = "italic"))+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
 
 
 ##Fig 6F: scATAC read-in-peak score by EGFR versus PDGFRA amplification in P521
@@ -742,7 +769,10 @@ ggplot(P521_plot, aes(x = Amp, y = Score, fill = Amp))+
   theme(axis.text.x = element_blank())+
   theme(strip.text.x = element_text(face = "italic", angle = 0))+
   theme(strip.background = element_rect(colour="white", fill="white"))+
-  labs(x = "Amplification")+ylim(0,4)
+  labs(x = "Amplification")+ylim(0,4)+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
 
 ##Fig 6H - Association of L_salmon module with EGFR amplification
 ATACModuleFigs <- ATACModules %>% dplyr::select(ModuleID|starts_with("P4")|starts_with("P5"))%>% pivot_longer(cols = -ModuleID, names_to = "ID", values_to ="ATACsignal")%>%mutate(ATACsignal = as.numeric(ATACsignal))%>%left_join(SampleInfo)
@@ -754,20 +784,27 @@ ggplot(EGFR_salmon4, aes(x = EGFR_CN, y = ATACsignal, color = Patient, group = "
   geom_jitter()+
   theme_bw(base_size = 11)+
   scale_color_manual(values = PatientColors)+
-  labs(x = "EGFR total copy number", y = "L_salmon4 average ATAC signal")+ 
+  labs(title = "L_salmon", x = "EGFR total copy number", y = "Average ATAC signal")+ 
   geom_smooth(method='lm', se = F)+
-  stat_cor(method = "pearson", size =3, show.legend = F, label.y = 3)
+  stat_cor(method = "pearson", size =3, show.legend = F, label.y = 3)+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(plot.title = element_text(face = "italic"))+
+  theme(plot.title = element_text(hjust = 0.5))
 
 ##Fig 6I - scATAC-level association of L_salmon module with EGFR amplification (in P521 and P529 with intratumoral heterogeneity)
 EGFR <- scATAC_peaks%>%filter(Patient == "P521"|Patient == "P529") %>% select(Cell, UMAP_1, UMAP_2, Neoplastic, L_salmon4)%>%left_join(scATAC_amps) %>%mutate(egfr = as.logical(egfr))%>%filter(Neoplastic == T)
 ggplot(EGFR, aes(x = egfr, y = L_salmon4, fill = egfr))+
   geom_violin(outlier.shape = NA)+
-  facet_wrap(Patient ~ .)+  theme_bw(base_size = 11)+
-  stat_compare_means(method = "t.test", size = 3, label = "p.format")+
+  facet_wrap(Patient ~ .)+  theme_bw(base_size = 12)+
+  stat_compare_means(method = "t.test", size = 3.5, label = "p.format")+
   theme(strip.background = element_rect(colour="white", fill="white"))+
-  labs(x= "EGFR amplification", y = "L_salmon4 scATAC score")+
+  labs(title = "L_salmon", x= "EGFR amplification", y = "Score")+
   scale_fill_brewer(palette = "Set1", direction = -1)+
-  theme(legend.position = "none")
+  theme(legend.position = "none")+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(plot.title = element_text(face = "italic"))+
+  theme(plot.title = element_text(hjust = 0.5))
+
 
 ##ELOVL2 and NOVA1 enhancer ATAC signal verus expression colored by EGFR_CN
 
@@ -808,14 +845,22 @@ ggplot(DistFig , aes(x = Dist, y = ATACsignal, color = RNAsubtype, group = "none
   labs(x = "Distance from centroid", y = "Average ATAC signal")
 
 #Fig 6K - scATAC enrichment of AP1 modules
-scATAC_AP1 <-  scATAC_peaks  %>% pivot_longer(8:ncol(scATAC_peaks), names_to = "Module", values_to = "Score")%>%filter(Module == "A_lavenderblush3"|Module == "L_lightcyan1"|Module == "L_orangered3"|Module == "L_thistle")%>%arrange(Score)
+scATAC_AP1 <-  scATAC_peaks  %>% pivot_longer(8:ncol(scATAC_peaks), names_to = "Module", values_to = "Score")%>%filter(Module == "L_orangered3")%>%filter(Patient == "P519" | Patient == "P529")%>%arrange(Score)
 ggplot(scATAC_AP1, aes(x=UMAP_1, y = UMAP_2, color = Score))+
   geom_point(size = 1, shape = 16, alpha = 0.8)+
-  facet_grid(Patient~Module, scales = "free")+
+  facet_wrap(Patient~., scales = "free", nrow = 1)+
   theme_bw(base_size = 11)+
   scale_color_viridis_c(option = "inferno", direction = -1)+
+  labs(title = "L_orangered3")+
   theme(strip.background = element_rect(colour="white", fill="white"))+
-  theme(strip.text.x = element_text( size = 12, face = "italic"))
+  theme(strip.text.x = element_text( size = 12))+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())+
+  theme(plot.title = element_text(face = "italic"))+
+  theme(plot.title = element_text(hjust = 0.5))
 
 
 ##Fig7A -- Individual peaks and genes correlation with purity and distance
@@ -867,7 +912,8 @@ ggplot(PeakCorrelations_fig, aes(x=PurityR, y = DistR, color = FigLabel, group =
   #stat_cor(method = "pearson", size =3, show.legend = F)+
   geom_label_repel(data = Correlations_summary, aes(PurityR, DistR, label = ModuleID), size = 3, fontface = "italic", show.legend = F)+
   scale_color_manual(values = Colors, breaks=c("Oligodendrocyte", "Astrocyte", "Neuron", "Microglia", "Neurodevelopmental", "EGFR amplification", "Neuronal hijacking", "AP1/Mesenchymal", "Interferon response"))+
-  xlim(-1,1)+ylim(-0.6,0.6)
+  xlim(-1,1)+ylim(-0.6,0.6)+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ggplot(GeneCorrelations, aes(x=Gene_PurityR, y = Gene_DistR, color = FigLabel, group = "none"))+
   geom_point(aes(alpha = 0.8))+
@@ -878,7 +924,8 @@ ggplot(GeneCorrelations, aes(x=Gene_PurityR, y = Gene_DistR, color = FigLabel, g
   #stat_cor(method = "pearson", size =3, show.legend = F)+
   geom_label_repel(data = RNAModuleSummary, aes(PurityR, DistR, label = ModuleID), size = 3, fontface = "italic", show.legend = F)+
   scale_color_manual(values = Colors, breaks=c("Oligodendrocyte", "Neuron", "Microglia", "Neurodevelopmental", "Neuronal hijacking", "AP1/Mesenchymal", "EGFR amplification", "Astrocyte", "Interferon response", "Choroid/cilia"))+
-  xlim(-1,1)+ylim(-0.6,0.6)
+  xlim(-1,1)+ylim(-0.6,0.6)+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ##Fig 7B: scATAC figure annotated
 Correlations_summary_select <- Correlations_summary %>% select(FigLabel, ModuleID)%>%filter(ModuleID != "A_plum3"& ModuleID != "A_plum"& ModuleID != "A_darkseagreen3"& ModuleID != "A_thistle"& ModuleID != "A_yellowgreen")
@@ -894,14 +941,15 @@ ggplot(scATAC_summary_ID, aes(x=UMAP_1, y = UMAP_2, color = FigLabel))+
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank(),
         axis.text.y=element_blank(),
-        axis.ticks.y=element_blank())
+        axis.ticks.y=element_blank())+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ## Fig 6C: scATAC non_neoplastic
 scATAC_nonneoplastic <- scATAC_summary_ID
 scATAC_nonneoplastic$FigLabel[scATAC_nonneoplastic$FigLabel != "Oligodendrocyte" &scATAC_nonneoplastic$FigLabel != "Neuron" &scATAC_nonneoplastic$FigLabel != "Microglia"] <-"Other"
 ggplot(scATAC_nonneoplastic, aes(x=UMAP_1, y = UMAP_2, color = FigLabel))+
   geom_point(size = 1, shape = 16)+
-  facet_wrap(.~Patient, scales = "free", nrow = 1)+
+  facet_wrap(.~Patient, scales = "free", nrow = 2)+
   theme_bw(base_size = 11)+
   theme(strip.background = element_rect(colour="white", fill="white"))+
   theme(strip.text.x = element_text( size = 12))+
@@ -910,7 +958,8 @@ ggplot(scATAC_nonneoplastic, aes(x=UMAP_1, y = UMAP_2, color = FigLabel))+
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank(),
         axis.text.y=element_blank(),
-        axis.ticks.y=element_blank())
+        axis.ticks.y=element_blank())+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 # spatial figure for graphical abstract
 ggplot(PeakCorrelations_fig, aes(x=PurityR, y = DistR, color = FigLabel,  group = "none"))+
